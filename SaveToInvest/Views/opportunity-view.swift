@@ -25,19 +25,19 @@ struct OpportunityView: View {
                 VStack(spacing: 20) {
                     // 总节省机会卡片
                     VStack(alignment: .leading, spacing: 10) {
-                        Text("每月可节省")
+                        Text("Monthly savings")
                             .font(.headline)
                         
                         HStack(alignment: .firstTextBaseline) {
                             Text(formatCurrency(totalMonthlySavings))
                                 .font(.system(size: 36, weight: .bold))
                             
-                            Text("/ 月")
+                            Text("/ month")
                                 .font(.headline)
                                 .foregroundColor(.secondary)
                         }
                         
-                        Text("每年可节省：\(formatCurrency(totalYearlySavings))")
+                        Text("Yearly saveings：\(formatCurrency(totalYearlySavings))")
                             .font(.subheadline)
                             .foregroundColor(.secondary)
                         
@@ -47,11 +47,11 @@ struct OpportunityView: View {
                         
                         // 时间选择器
                         VStack(alignment: .leading, spacing: 5) {
-                            Text("如果将这些钱投资到：")
+                            Text("If that money is invested in：")
                                 .font(.subheadline)
                             
                             if !investments.isEmpty {
-                                Picker("投资选项", selection: $selectedInvestmentIndex) {
+                                Picker("Investment Options", selection: $selectedInvestmentIndex) {
                                     ForEach(0..<investments.count, id: \.self) { index in
                                         Text(investments[index].name).tag(index)
                                     }
@@ -60,15 +60,15 @@ struct OpportunityView: View {
                                 .padding(.vertical, 5)
                             }
                             
-                            Text("投资时长：")
+                            Text("Length of investment：")
                                 .font(.subheadline)
                                 .padding(.top, 5)
                             
-                            Picker("投资时长", selection: $selectedTimeframe) {
-                                Text("1年").tag(1)
-                                Text("5年").tag(5)
-                                Text("10年").tag(10)
-                                Text("20年").tag(20)
+                            Picker("Length of investment", selection: $selectedTimeframe) {
+                                Text("1 year").tag(1)
+                                Text("5 year").tag(5)
+                                Text("10 year").tag(10)
+                                Text("20 year").tag(20)
                             }
                             .pickerStyle(SegmentedPickerStyle())
                         }
@@ -82,7 +82,7 @@ struct OpportunityView: View {
                     // 投资回报预测
                     if !expenseAnalyzer.opportunityCosts.isEmpty && !investments.isEmpty {
                         VStack(alignment: .leading, spacing: 10) {
-                            Text("投资回报预测")
+                            Text("Return on investment projections")
                                 .font(.headline)
                                 .padding(.horizontal)
                             
@@ -98,12 +98,12 @@ struct OpportunityView: View {
                     
                     // 详细支出机会成本列表
                     VStack(alignment: .leading, spacing: 10) {
-                        Text("非必要支出机会成本")
+                        Text("Opportunity cost of non-essential expenditures")
                             .font(.headline)
                             .padding(.horizontal)
                         
                         if expenseAnalyzer.opportunityCosts.isEmpty {
-                            Text("暂无非必要支出数据")
+                            Text("Data on non-essential expenditures are not available")
                                 .foregroundColor(.secondary)
                                 .frame(maxWidth: .infinity)
                                 .padding()
@@ -125,16 +125,16 @@ struct OpportunityView: View {
                     // 投资说明
                     VStack(alignment: .leading, spacing: 5) {
                         if !investments.isEmpty {
-                            Text("关于 \(investments[selectedInvestmentIndex].name)")
+                            Text("About \(investments[selectedInvestmentIndex].name)")
                                 .font(.headline)
                             
-                            Text("历史年均回报率：\(String(format: "%.2f", investments[selectedInvestmentIndex].averageAnnualReturn))%")
+                            Text("Historical average annualized rate of return：\(String(format: "%.2f", investments[selectedInvestmentIndex].averageAnnualReturn))%")
                                 .font(.subheadline)
                             
-                            Text("风险等级：\(investments[selectedInvestmentIndex].riskLevel.rawValue)")
+                            Text("Risk level：\(investments[selectedInvestmentIndex].riskLevel.rawValue)")
                                 .font(.subheadline)
                             
-                            Text("过往业绩不代表未来表现。投资有风险，入市需谨慎。")
+                            Text("Past performance is not indicative of future performance. Investment involves risks, be cautious when entering the market.")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                                 .padding(.top, 5)
@@ -148,7 +148,7 @@ struct OpportunityView: View {
                 }
                 .padding(.vertical)
             }
-            .navigationTitle("投资机会")
+            .navigationTitle("Investment Opportunities")
         }
     }
     
@@ -188,7 +188,7 @@ struct InvestmentReturnChart: View {
                 VStack(spacing: 15) {
                     HStack {
                         VStack(alignment: .leading) {
-                            Text("\(selectedTimeframe)年后总值")
+                            Text("\(selectedTimeframe)Total value after years")
                                 .font(.headline)
                             
                             Text(formatCurrency(projectedReturn.totalValue))
@@ -199,7 +199,7 @@ struct InvestmentReturnChart: View {
                         Spacer()
                         
                         VStack(alignment: .trailing) {
-                            Text("投资回报")
+                            Text("return on investment")
                                 .font(.headline)
                             
                             Text(formatCurrency(projectedReturn.returnAmount))
@@ -214,19 +214,19 @@ struct InvestmentReturnChart: View {
                             .fill(Color.blue.opacity(0.7))
                             .frame(width: calculateWidth(value: projectedReturn.totalContributions), height: 30)
                             .overlay(
-                                Text("本金").font(.caption).foregroundColor(.white)
+                                Text("capital").font(.caption).foregroundColor(.white)
                             )
                         
                         Rectangle()
                             .fill(Color.green.opacity(0.7))
                             .frame(width: calculateWidth(value: projectedReturn.returnAmount), height: 30)
                             .overlay(
-                                Text("收益").font(.caption).foregroundColor(.white)
+                                Text("earnings").font(.caption).foregroundColor(.white)
                             )
                     }
                     .cornerRadius(5)
                     
-                    Text("投资回报率：\(String(format: "%.2f", projectedReturn.returnPercentage))%")
+                    Text("return on investment (ROI)：\(String(format: "%.2f", projectedReturn.returnPercentage))%")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                 }
@@ -235,7 +235,7 @@ struct InvestmentReturnChart: View {
                 .cornerRadius(10)
                 .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
             } else {
-                Text("暂无数据")
+                Text("No data available")
                     .foregroundColor(.secondary)
                     .frame(maxWidth: .infinity)
                     .padding()
@@ -274,19 +274,19 @@ struct OpportunityCostRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text("每月节省：\(formatCurrency(opportunity.monthlyAmount))")
+                Text("Monthly savings：\(formatCurrency(opportunity.monthlyAmount))")
                     .font(.headline)
                 
                 Spacer()
                 
-                Text("每年：\(formatCurrency(opportunity.yearlySavings))")
+                Text("every year：\(formatCurrency(opportunity.yearlySavings))")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
             }
             
             if let projectedReturn = projectedReturn {
                 HStack {
-                    Text("\(timeframe)年后：")
+                    Text("\(timeframe)later in the year：")
                         .font(.subheadline)
                     
                     Text(formatCurrency(projectedReturn.totalValue))
@@ -295,7 +295,7 @@ struct OpportunityCostRow: View {
                     
                     Spacer()
                     
-                    Text("收益：\(formatCurrency(projectedReturn.returnAmount))")
+                    Text("earnings：\(formatCurrency(projectedReturn.returnAmount))")
                         .font(.subheadline)
                         .foregroundColor(.blue)
                 }

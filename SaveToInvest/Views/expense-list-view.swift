@@ -46,7 +46,7 @@ struct ExpenseListView: View {
                     Image(systemName: "magnifyingglass")
                         .foregroundColor(.secondary)
                     
-                    TextField("搜索支出", text: $searchText)
+                    TextField("Search expenditure", text: $searchText)
                         .textFieldStyle(RoundedBorderTextFieldStyle())
                 }
                 .padding(.horizontal)
@@ -57,7 +57,7 @@ struct ExpenseListView: View {
                         Button(action: {
                             selectedCategory = nil
                         }) {
-                            Text("全部")
+                            Text("All")
                                 .padding(.vertical, 5)
                                 .padding(.horizontal, 10)
                                 .background(selectedCategory == nil ? Color.blue : Color.gray.opacity(0.2))
@@ -86,10 +86,10 @@ struct ExpenseListView: View {
                 
                 // 排序选项
                 HStack {
-                    Text("排序方式：")
+                    Text("Sort by：")
                         .font(.caption)
                     
-                    Picker("排序", selection: $sortOption) {
+                    Picker("sort", selection: $sortOption) {
                         ForEach(SortOption.allCases, id: \.self) { option in
                             Text(option.description).tag(option)
                         }
@@ -110,11 +110,11 @@ struct ExpenseListView: View {
                             .frame(width: 60, height: 60)
                             .foregroundColor(.secondary)
                         
-                        Text("暂无支出记录")
+                        Text("No expenditures recorded")
                             .font(.headline)
                             .foregroundColor(.secondary)
                         
-                        Text("点击底部加号按钮添加支出")
+                        Text("Click the plus button at the bottom to add expenses")
                             .font(.subheadline)
                             .foregroundColor(.secondary)
                             .padding(.top, 5)
@@ -129,7 +129,7 @@ struct ExpenseListView: View {
                                     Button(role: .destructive) {
                                         viewModel.deleteExpense(id: expense.id)
                                     } label: {
-                                        Label("删除", systemImage: "trash")
+                                        Label("Delete", systemImage: "trash")
                                     }
                                 }
                         }
@@ -137,7 +137,7 @@ struct ExpenseListView: View {
                     .listStyle(PlainListStyle())
                 }
             }
-            .navigationTitle("支出记录")
+            .navigationTitle("Expenditure records")
             .navigationBarItems(
                 trailing: Button(action: {
                     showAddExpense = true
@@ -210,10 +210,10 @@ enum SortOption: String, CaseIterable {
     
     var description: String {
         switch self {
-        case .dateDesc: return "日期（新到旧）"
-        case .dateAsc: return "日期（旧到新）"
-        case .amountDesc: return "金额（大到小）"
-        case .amountAsc: return "金额（小到大）"
+        case .dateDesc: return "Date (new to old)"
+        case .dateAsc: return "Date (old to new)"
+        case .amountDesc: return "Amount (large to small)"
+        case .amountAsc: return "Amount (small to large)）"
         }
     }
 }

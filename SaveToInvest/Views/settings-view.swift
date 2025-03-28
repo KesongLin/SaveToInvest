@@ -13,14 +13,14 @@ struct SettingsView: View {
     }
     
     private var userEmail: String {
-        return viewModel.firebaseService.currentUser?.email ?? "未登录"
+        return viewModel.firebaseService.currentUser?.email ?? "not logged in"
     }
     
     var body: some View {
         NavigationView {
             Form {
                 // 用户信息部分
-                Section(header: Text("账户信息")) {
+                Section(header: Text("Account Information")) {
                     HStack {
                         Image(systemName: "person.circle.fill")
                             .resizable()
@@ -28,7 +28,7 @@ struct SettingsView: View {
                             .foregroundColor(.blue)
                         
                         VStack(alignment: .leading, spacing: 5) {
-                            Text(viewModel.firebaseService.currentUser?.displayName ?? "用户")
+                            Text(viewModel.firebaseService.currentUser?.displayName ?? "user")
                                 .font(.headline)
                             
                             Text(userEmail)
@@ -41,12 +41,12 @@ struct SettingsView: View {
                 }
                 
                 // 投资偏好设置
-                Section(header: Text("投资偏好")) {
-                    Picker("默认投资时长", selection: $defaultProjectionYears) {
-                        Text("1年").tag(1)
-                        Text("5年").tag(5)
-                        Text("10年").tag(10)
-                        Text("20年").tag(20)
+                Section(header: Text("investment preference")) {
+                    Picker("Default Investment Duration", selection: $defaultProjectionYears) {
+                        Text("1 year").tag(1)
+                        Text("5 year").tag(5)
+                        Text("10 year").tag(10)
+                        Text("20 yaer").tag(20)
                     }
                     .pickerStyle(DefaultPickerStyle())
                     
@@ -54,7 +54,7 @@ struct SettingsView: View {
                         showDefaultInvestmentPicker = true
                     }) {
                         HStack {
-                            Text("默认投资选项")
+                            Text("Default Investment Options")
                             Spacer()
                             Text(getDefaultInvestmentName())
                                 .foregroundColor(.secondary)
@@ -73,29 +73,29 @@ struct SettingsView: View {
                 }
                 
                 // 支出分类偏好
-                Section(header: Text("支出分类偏好")) {
+                Section(header: Text("Expenditure classification preferences")) {
                     NavigationLink(destination: CategoryPreferencesView(
                         categoryPreferences: userSettings.categoryPreferences,
                         onUpdate: { preferences in
                             updateUserSettings(categoryPreferences: preferences)
                         }
                     )) {
-                        Text("自定义支出必要性")
+                        Text("Need for customized expenditures")
                     }
                     
-                    Text("你可以根据自己的生活方式自定义哪些支出类别被视为必要")
+                    Text("You can customize which spending categories are considered necessary based on your lifestyle")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
                 
                 // 数据和隐私
-                Section(header: Text("数据和隐私")) {
+                Section(header: Text("Data and privacy")) {
                     Button(action: {
                         // 导出数据功能
                     }) {
                         HStack {
                             Image(systemName: "square.and.arrow.up")
-                            Text("导出数据")
+                            Text("Export data")
                         }
                     }
                     
@@ -104,16 +104,16 @@ struct SettingsView: View {
                     }) {
                         HStack {
                             Image(systemName: "trash")
-                            Text("清除所有数据")
+                            Text("Clear all data")
                                 .foregroundColor(.red)
                         }
                     }
                 }
                 
                 // 关于和反馈
-                Section(header: Text("关于")) {
+                Section(header: Text("About")) {
                     HStack {
-                        Text("版本")
+                        Text("Version")
                         Spacer()
                         Text("1.0.0")
                             .foregroundColor(.secondary)
@@ -122,11 +122,11 @@ struct SettingsView: View {
                     Button(action: {
                         // 发送反馈功能
                     }) {
-                        Text("发送反馈")
+                        Text("Send Feedback")
                     }
                     
-                    Link("隐私政策", destination: URL(string: "https://example.com/privacy")!)
-                    Link("服务条款", destination: URL(string: "https://example.com/terms")!)
+                    Link("privacy policy", destination: URL(string: "https://example.com/privacy")!)
+                    Link("terms of service", destination: URL(string: "https://example.com/terms")!)
                 }
                 
                 // 退出登录
@@ -136,14 +136,14 @@ struct SettingsView: View {
                     }) {
                         HStack {
                             Spacer()
-                            Text("退出登录")
+                            Text("Log out")
                                 .foregroundColor(.red)
                             Spacer()
                         }
                     }
                 }
             }
-            .navigationTitle("设置")
+            .navigationTitle("Setting")
             .onChange(of: defaultProjectionYears) { newValue in
                 updateUserSettings(defaultProjectionYears: newValue)
             }
@@ -152,7 +152,7 @@ struct SettingsView: View {
     
     private func getDefaultInvestmentName() -> String {
         guard let defaultInvestmentId = userSettings.defaultInvestmentId else {
-            return "未设置"
+            return "Not set"
         }
         
         return expenseAnalyzer.getInvestmentName(for: defaultInvestmentId)
@@ -197,7 +197,7 @@ struct InvestmentPickerView: View {
                             Text(investment.name)
                                 .font(.headline)
                             
-                            Text("年均回报率：\(String(format: "%.2f", investment.averageAnnualReturn))%")
+                            Text("Average annual rate of return：\(String(format: "%.2f", investment.averageAnnualReturn))%")
                                 .font(.subheadline)
                                 .foregroundColor(.secondary)
                         }
@@ -213,9 +213,9 @@ struct InvestmentPickerView: View {
                 }
                 .buttonStyle(PlainButtonStyle())
             }
-            .navigationTitle("选择默认投资")
+            .navigationTitle("Select Default Investment")
             .navigationBarItems(
-                trailing: Button("取消") {
+                trailing: Button("Cancel") {
                     onSelect(selectedInvestmentId ?? "")
                 }
             )
@@ -241,7 +241,7 @@ struct CategoryPreferencesView: View {
                             Text(category.rawValue)
                                 .font(.headline)
                             
-                            Text(preferences[category.rawValue] == true ? "必要支出" : "非必要支出")
+                            Text(preferences[category.rawValue] == true ? "Necessary expenditures": "Non-necessary expenditures")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
@@ -250,9 +250,9 @@ struct CategoryPreferencesView: View {
                 .toggleStyle(SwitchToggleStyle(tint: .green))
             }
         }
-        .navigationTitle("支出分类偏好")
+        .navigationTitle("Expenditure classification preferences")
         .navigationBarItems(
-            trailing: Button("保存") {
+            trailing: Button("Save") {
                 onUpdate(preferences)
             }
         )

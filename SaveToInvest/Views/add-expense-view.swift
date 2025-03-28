@@ -16,12 +16,12 @@ struct AddExpenseView: View {
     var body: some View {
         NavigationView {
             Form {
-                Section(header: Text("基本信息")) {
-                    TextField("标题", text: $title)
+                Section(header: Text("Basic Information")) {
+                    TextField("title", text: $title)
                     
                     HStack {
                         Text("$")
-                        TextField("金额", text: $amount)
+                        TextField("amounts", text: $amount)
                             .keyboardType(.decimalPad)
                     }
                     
@@ -29,7 +29,7 @@ struct AddExpenseView: View {
                         showingDatePicker.toggle()
                     }) {
                         HStack {
-                            Text("日期")
+                            Text("dates")
                             Spacer()
                             Text(dateFormatter.string(from: date))
                                 .foregroundColor(.secondary)
@@ -43,8 +43,8 @@ struct AddExpenseView: View {
                     }
                 }
                 
-                Section(header: Text("分类")) {
-                    Picker("类别", selection: $selectedCategory) {
+                Section(header: Text("categories")) {
+                    Picker("categories", selection: $selectedCategory) {
                         ForEach(ExpenseCategory.allCases, id: \.self) { category in
                             HStack {
                                 Image(systemName: category.icon)
@@ -53,7 +53,7 @@ struct AddExpenseView: View {
                         }
                     }
                     
-                    Toggle("是必要支出", isOn: $isNecessary)
+                    Toggle("Necessary expenditure", isOn: $isNecessary)
                         .toggleStyle(SwitchToggleStyle(tint: .green))
                     
                     if !isNecessary {
@@ -61,20 +61,20 @@ struct AddExpenseView: View {
                             Image(systemName: "exclamationmark.triangle")
                                 .foregroundColor(.orange)
                             
-                            Text("此支出将被标记为非必要，用于机会成本分析")
+                            Text("This expenditure will be marked as non-essential for the purpose of opportunity cost analysis")
                                 .font(.footnote)
                                 .foregroundColor(.secondary)
                         }
                     }
                 }
                 
-                Section(header: Text("备注")) {
-                    TextField("添加备注（可选）", text: $notes)
+                Section(header: Text("Note")) {
+                    TextField("Add Remarks (optional)", text: $notes)
                 }
                 
                 Section {
                     Button(action: saveExpense) {
-                        Text("保存支出")
+                        Text("Save expense")
                             .frame(maxWidth: .infinity)
                             .foregroundColor(.white)
                             .padding(.vertical, 10)
@@ -85,11 +85,11 @@ struct AddExpenseView: View {
                     .buttonStyle(PlainButtonStyle())
                 }
             }
-            .navigationTitle("添加支出")
+            .navigationTitle("Add expense")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button("取消") {
+                    Button("cancel") {
                         presentationMode.wrappedValue.dismiss()
                     }
                 }

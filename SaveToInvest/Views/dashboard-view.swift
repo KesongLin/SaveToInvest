@@ -12,11 +12,11 @@ struct DashboardView: View {
                 // 头部用户欢迎
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("欢迎，\(viewModel.firebaseService.currentUser?.displayName ?? "用户")")
+                        Text("Welcome，\(viewModel.firebaseService.currentUser?.displayName ?? "user")")
                             .font(.title)
                             .fontWeight(.bold)
                         
-                        Text("让我们分析你的支出")
+                        Text("Let's analyze your expenses")
                             .font(.subheadline)
                             .foregroundColor(.secondary)
                     }
@@ -36,12 +36,12 @@ struct DashboardView: View {
                 
                 // 本月支出概览
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("本月支出概览")
+                    Text("Overview of expenditures for the month")
                         .font(.headline)
                         .padding(.horizontal)
                     
                     if expenseAnalyzer.monthlySummary.isEmpty {
-                        emptyStateView(message: "暂无支出数据")
+                        emptyStateView(message: "No expenditure data available")
                     } else {
                         ExpenseSummaryCard(categorySummaries: expenseAnalyzer.monthlySummary)
                     }
@@ -49,12 +49,12 @@ struct DashboardView: View {
                 
                 // 非必要支出分析
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("非必要支出分析")
+                    Text("Analysis of non-essential expenditures")
                         .font(.headline)
                         .padding(.horizontal)
                     
                     if expenseAnalyzer.unnecessaryExpenses.isEmpty {
-                        emptyStateView(message: "没有发现非必要支出")
+                        emptyStateView(message: "No non-essential expenditures were identified")
                     } else {
                         UnnecessaryExpensesCard(
                             unnecessaryExpenses: expenseAnalyzer.unnecessaryExpenses,
@@ -66,12 +66,12 @@ struct DashboardView: View {
                 
                 // 最大的节省机会
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("节省与投资机会")
+                    Text("Savings and investment opportunities")
                         .font(.headline)
                         .padding(.horizontal)
                     
                     if expenseAnalyzer.opportunityCosts.isEmpty {
-                        emptyStateView(message: "添加支出以查看投资机会")
+                        emptyStateView(message: "Add expenses to view investment opportunities")
                     } else {
                         OpportunityHighlightCard(
                             opportunityCosts: expenseAnalyzer.opportunityCosts,
@@ -83,7 +83,7 @@ struct DashboardView: View {
             }
             .padding(.vertical)
         }
-        .navigationTitle("仪表板")
+        .navigationTitle("dashboard")
         .sheet(isPresented: $showAddExpense) {
             AddExpenseView()
                 .environmentObject(viewModel)
@@ -140,7 +140,7 @@ struct ExpenseSummaryCard: View {
             
             if categorySummaries.count > 5 {
                 Button(action: {}) {
-                    Text("查看全部")
+                    Text("View All")
                         .font(.caption)
                         .foregroundColor(.blue)
                 }
@@ -162,7 +162,7 @@ struct UnnecessaryExpensesCard: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("本月非必要支出：$\(totalAmount, specifier: "%.2f")")
+            Text("Non-essential expenses for the month：$\(totalAmount, specifier: "%.2f")")
                 .font(.subheadline)
                 .fontWeight(.semibold)
             
@@ -194,7 +194,7 @@ struct UnnecessaryExpensesCard: View {
             
             if unnecessaryExpenses.count > 3 {
                 Button(action: {}) {
-                    Text("查看全部")
+                    Text("View All")
                         .font(.caption)
                         .foregroundColor(.blue)
                 }
@@ -227,7 +227,7 @@ struct OpportunityHighlightCard: View {
                         Image(systemName: "arrow.up.forward")
                             .foregroundColor(.green)
                         
-                        Text("每月节省")
+                        Text("Monthly savings")
                             .font(.subheadline)
                         
                         Text(formatCurrency(topOpportunity.monthlyAmount))
@@ -239,7 +239,7 @@ struct OpportunityHighlightCard: View {
                     
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("1年后")
+                            Text("1 year")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                             
@@ -252,7 +252,7 @@ struct OpportunityHighlightCard: View {
                         Spacer()
                         
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("5年后")
+                            Text("5 year")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                             
@@ -265,7 +265,7 @@ struct OpportunityHighlightCard: View {
                         Spacer()
                         
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("10年后")
+                            Text("10 year")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                             
@@ -276,7 +276,7 @@ struct OpportunityHighlightCard: View {
                         }
                     }
                     
-                    Text("投资到：\(getInvestmentName(topOpportunity.investmentId))")
+                    Text("invest in：\(getInvestmentName(topOpportunity.investmentId))")
                         .font(.caption)
                         .foregroundColor(.secondary)
                         .padding(.top, 5)
@@ -284,7 +284,7 @@ struct OpportunityHighlightCard: View {
             }
             
             Button(action: {}) {
-                Text("查看详细机会分析")
+                Text("View detailed opportunity analysis")
                     .font(.subheadline)
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
