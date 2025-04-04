@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>API_KEY</key>
+	<string>AIzaSyApm4h1TT66cT9scIULi7sjililzBsRbZo</string>
+	<key>GCM_SENDER_ID</key>
+	<string>393197289894</string>
+	<key>PLIST_VERSION</key>
+	<string>1</string>
+	<key>BUNDLE_ID</key>
+	<string>KLin.SaveToInvest</string>
+	<key>PROJECT_ID</key>
+	<string>savetogrow-589e2</string>
+	<key>STORAGE_BUCKET</key>
+	<string>savetogrow-589e2.firebasestorage.app</string>
+	<key>IS_ADS_ENABLED</key>
+	<false></false>
+	<key>IS_ANALYTICS_ENABLED</key>
+	<false></false>
+	<key>IS_APPINVITE_ENABLED</key>
+	<true></true>
+	<key>IS_GCM_ENABLED</key>
+	<true></true>
+	<key>IS_SIGNIN_ENABLED</key>
+	<true></true>
+	<key>GOOGLE_APP_ID</key>
+	<string>1:393197289894:ios:1bc9c4d4076c0cf5424f67</string>
+</dict>
+</plist>
