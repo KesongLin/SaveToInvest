@@ -6,10 +6,6 @@ target 'SaveToInvest' do
   use_frameworks!
 
   # Pods for SaveToInvest
-  pod 'Firebase/Auth'
-  pod 'Firebase/Firestore'
-  pod 'Firebase/Core'
-  pod 'Firebase/Analytics'
 
   target 'SaveToInvestTests' do
     inherit! :search_paths

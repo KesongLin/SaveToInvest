@@ -65,33 +65,6 @@ class MainViewModel: ObservableObject {
     
     // MARK: - Expense Management
     
-    func addExpense(title: String, amount: Double, date: Date, category: ExpenseCategory, isNecessary: Bool, notes: String?) {
-        guard let userId = firebaseService.currentUser?.id else { return }
-        
-        isLoading = true
-        
-        let expense = Expense(
-            title: title,
-            amount: amount,
-            date: date,
-            category: category,
-            isNecessary: isNecessary,
-            notes: notes,
-            userId: userId
-        )
-        
-        firebaseService.addExpense(expense: expense) { [weak self] success in
-            DispatchQueue.main.async {
-                self?.isLoading = false
-                
-                if !success {
-                    self?.errorMessage = "Failed to add expense"
-                    self?.showError = true
-                }
-            }
-        }
-    }
-    
     func updateExpense(_ expense: Expense) {
         isLoading = true
         

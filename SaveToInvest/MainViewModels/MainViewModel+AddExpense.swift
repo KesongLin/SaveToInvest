@@ -11,7 +11,7 @@ import FirebaseFirestore
 extension MainViewModel {
     
     // Updated addExpense function that fixes loading issues and incorporates ML classification
-    func addExpense(title: String, amount: Double, date: Date, category: ExpenseCategory, isNecessary: Bool? = nil, notes: String?) {
+    func addExpense(title: String, amount: Double, date: Date, category: ExpenseCategory, isNecessary: Bool, notes: String?) {
         guard let userId = firebaseService.currentUser?.id else {
             // If there's no user ID, don't show loading and return early
             self.errorMessage = "User not authenticated"
@@ -20,32 +20,6 @@ extension MainViewModel {
         }
         
         isLoading = true
-        
-        // Use ML classifier to determine if necessary, if not provided
-        let necessaryStatus = isNecessary ?? ExpenseClassifierService.shared.predictIsNecessary(
-            title: title,
-            amount: amount,
-            category: category
-        )
-        
-        let expense = Expense(
-            title: title,
-            amount: amount,
-            date: date,
-            category: category,
-            isNecessary: necessaryStatus,
-            notes: notes,
-            userId: userId
-        )
-        
-        // Save the user's classification for ML model improvement if manually specified
-        if let isNecessary = isNecessary {
-            ExpenseClassifierService.shared.saveUserClassification(
-                expenseTitle: title,
-                category: category,
-                isNecessary: isNecessary
-            )
-        }
         
         // Use a timeout to ensure the loading state gets cleared
         let timeoutTimer = Timer.scheduledTimer(withTimeInterval: 10.0, repeats: false) { [weak self] _ in
@@ -57,6 +31,23 @@ extension MainViewModel {
                 }
             }
         }
+        
+        // Save the user's classification for ML model improvement
+        ExpenseClassifierService.shared.saveUserClassification(
+            expenseTitle: title,
+            category: category,
+            isNecessary: isNecessary
+        )
+        
+        let expense = Expense(
+            title: title,
+            amount: amount,
+            date: date,
+            category: category,
+            isNecessary: isNecessary,
+            notes: notes,
+            userId: userId
+        )
         
         firebaseService.addExpense(expense: expense) { [weak self] success in
             // Always clear loading state, whether successful or not
