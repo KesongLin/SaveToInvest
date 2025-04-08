@@ -34,6 +34,7 @@
 		9638458E2DA097D2009AD024 /* FirebaseStorage in Frameworks */ = {isa = PBXBuildFile; productRef = 9638458D2DA097D2009AD024 /* FirebaseStorage */; };
 		963845902DA097D2009AD024 /* FirebaseStorageCombine-Community in Frameworks */ = {isa = PBXBuildFile; productRef = 9638458F2DA097D2009AD024 /* FirebaseStorageCombine-Community */; };
 		963845922DA097D2009AD024 /* FirebaseVertexAI in Frameworks */ = {isa = PBXBuildFile; productRef = 963845912DA097D2009AD024 /* FirebaseVertexAI */; };
+		9638459B2DA324F1009AD024 /* SwiftCSV in Frameworks */ = {isa = PBXBuildFile; productRef = 9638459A2DA324F1009AD024 /* SwiftCSV */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -112,6 +113,7 @@
 				9638458A2DA097D2009AD024 /* FirebasePerformance in Frameworks */,
 				963845762DA097D2009AD024 /* FirebaseDatabase in Frameworks */,
 				963845722DA097D2009AD024 /* FirebaseCore in Frameworks */,
+				9638459B2DA324F1009AD024 /* SwiftCSV in Frameworks */,
 				963845702DA097D2009AD024 /* FirebaseAuthCombine-Community in Frameworks */,
 				9638457E2DA097D2009AD024 /* FirebaseFunctions in Frameworks */,
 				963845782DA097D2009AD024 /* FirebaseDynamicLinks in Frameworks */,
@@ -285,6 +287,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				963845622DA097D2009AD024 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
+				963845992DA324F1009AD024 /* XCRemoteSwiftPackageReference "SwiftCSV" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 963843C92DA08A61009AD024 /* Products */;
@@ -742,6 +745,14 @@
 				minimumVersion = 11.11.0;
 			};
 		};
+		963845992DA324F1009AD024 /* XCRemoteSwiftPackageReference "SwiftCSV" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/swiftcsv/SwiftCSV.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.10.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -864,6 +875,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 963845622DA097D2009AD024 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
 			productName = FirebaseVertexAI;
+		};
+		9638459A2DA324F1009AD024 /* SwiftCSV */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 963845992DA324F1009AD024 /* XCRemoteSwiftPackageReference "SwiftCSV" */;
+			productName = SwiftCSV;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
