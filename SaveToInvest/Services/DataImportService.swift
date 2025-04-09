@@ -36,6 +36,36 @@ enum ImportError: Error {
 enum ImportCategory: String {
     case housing, utilities, food, dining, transportation, entertainment, healthcare, insurance, shopping, education, travel, subscription, fitness, books, electronics, gaming, other
     
+    // Add icon property
+    var icon: String {
+        switch self {
+        case .food, .dining: return "fork.knife"
+        case .housing: return "house"
+        case .transportation: return "car"
+        case .entertainment: return "film"
+        case .utilities: return "bolt"
+        case .healthcare, .fitness: return "heart"
+        case .shopping, .books, .electronics: return "bag"
+        case .education: return "book"
+        case .travel: return "airplane"
+        case .insurance: return "lock.shield"
+        case .subscription: return "repeat"
+        case .gaming: return "gamecontroller"
+        case .other: return "ellipsis.circle"
+        }
+    }
+
+    // Add isTypicallyNecessary property
+    var isTypicallyNecessary: Bool {
+        switch self {
+        case .food, .housing, .transportation, .utilities, .healthcare, .insurance, .education:
+            return true
+        case .dining, .entertainment, .shopping, .travel, .subscription, .fitness, .books, .electronics, .gaming, .other:
+            return false
+        }
+    }
+    
+
     // Convert to the app's ExpenseCategory type
     func toExpenseCategory() -> ExpenseCategory {
         // Use the string value to create the actual ExpenseCategory
@@ -319,9 +349,13 @@ class DataImportService {
     }
     
     // MARK: Modified CSV parsing without SwiftCSV dependency
+    // Add this function to your DataImportService.swift file to enhance the CSV preview
+
+    // Modify parseCSV function to include preview information
     private func parseCSV(_ csvString: String) -> [ImportedTransaction] {
         var transactions: [ImportedTransaction] = []
         
+        print("CSV Import: Starting CSV analysis")
         print("CSV length: \(csvString.count) characters")
         print("Sample of CSV content: \(csvString.prefix(200))")
         
@@ -338,22 +372,64 @@ class DataImportService {
         let header = parseCSVRow(lines[0])
         let headerLowercased = header.map { $0.lowercased() }
         
-        // Identify required column indices
-        guard let dateColumnIndex = headerLowercased.firstIndex(where: { $0.contains("date") }),
-              let descColumnIndex = headerLowercased.firstIndex(where: { $0.contains("descr") ||
-                                                                $0.contains("memo") ||
-                                                                $0.contains("narration") ||
-                                                                $0.contains("transaction") }),
-              let amountColumnIndex = headerLowercased.firstIndex(where: { $0.contains("amount") ||
-                                                                  $0.contains("sum") ||
-                                                                  $0.contains("value") ||
-                                                                  $0.contains("payment") })
-        else {
+        // Log header information for debugging
+        print("CSV Headers: \(header.joined(separator: ", "))")
+        
+        // Identify required column indices with detailed logging
+        let dateColumnIndex = headerLowercased.firstIndex(where: { $0.contains("date") })
+        let amountColumnIndex = headerLowercased.firstIndex(where: {
+            $0.contains("amount") || $0.contains("sum") || $0.contains("value") ||
+            $0.contains("payment") || $0.contains("price") || $0.contains("debit") || $0.contains("credit")
+        })
+        
+        guard let dateCol = dateColumnIndex, let amountCol = amountColumnIndex else {
             print("Missing required columns in CSV")
+            if dateColumnIndex == nil { print("- Missing date column") }
+            if amountColumnIndex == nil { print("- Missing amount column") }
             return []
         }
         
-        let categoryColumnIndex = headerLowercased.firstIndex(where: { $0.contains("category") })
+        // Find description column with comprehensive options
+        let descColumnIndex = headerLowercased.firstIndex(where: {
+            $0.contains("descr") || $0.contains("memo") || $0.contains("narration") ||
+            $0.contains("transaction") || $0.contains("name") || $0.contains("payee") ||
+            $0.contains("merchant") || $0.contains("detail") || $0.contains("particulars")
+        })
+        
+        // Find alternate text columns if no description column is found
+        let merchantColumnIndex = descColumnIndex == nil ? headerLowercased.firstIndex(where: {
+            $0.contains("merchant") || $0.contains("vendor") || $0.contains("store") ||
+            $0.contains("shop") || $0.contains("payee") || $0.contains("recipient")
+        }) : nil
+        
+        // Try to find any text column that might contain transaction details
+        let noteColumnIndex = (descColumnIndex == nil && merchantColumnIndex == nil) ?
+            headerLowercased.firstIndex(where: {
+                $0.contains("note") || $0.contains("detail") || $0.contains("text") ||
+                $0.contains("info") || $0.contains("reference") || $0.contains("desc")
+            }) : nil
+        
+        // Log column identification results
+        print("Date column at index: \(dateCol), header: \(header[dateCol])")
+        print("Amount column at index: \(amountCol), header: \(header[amountCol])")
+        
+        if let descIndex = descColumnIndex {
+            print("Description column at index: \(descIndex), header: \(header[descIndex])")
+        } else if let merchIndex = merchantColumnIndex {
+            print("Using merchant column at index: \(merchIndex), header: \(header[merchIndex])")
+        } else if let noteIndex = noteColumnIndex {
+            print("Using note column at index: \(noteIndex), header: \(header[noteIndex])")
+        } else {
+            print("No description column found - will use placeholder descriptions")
+        }
+        
+        // Look for category column
+        let categoryColumnIndex = headerLowercased.firstIndex(where: {
+            $0.contains("category") || $0.contains("type") || $0.contains("classification")
+        })
+        if let catIndex = categoryColumnIndex {
+            print("Category column at index: \(catIndex), header: \(header[catIndex])")
+        }
         
         // Gather data about amount signs to determine card type
         var positiveCount = 0
@@ -362,10 +438,10 @@ class DataImportService {
         
         for i in 1..<lines.count {
             let row = parseCSVRow(lines[i])
-            if row.count >= max(dateColumnIndex, descColumnIndex, amountColumnIndex) + 1 {
+            if row.count >= max(dateCol, amountCol) + 1 {
                 rows.append(row)
                 
-                if let amountString = row.indices.contains(amountColumnIndex) ? row[amountColumnIndex] : nil {
+                if let amountString = row.indices.contains(amountCol) ? row[amountCol] : nil {
                     let cleanAmountStr = amountString
                         .replacingOccurrences(of: "$", with: "")
                         .replacingOccurrences(of: ",", with: "")
@@ -382,17 +458,22 @@ class DataImportService {
         }
         
         let isCreditCard = positiveCount >= negativeCount
-        print("Determined card type: \(isCreditCard ? "Credit Card" : "Debit Card") (positive: \(positiveCount), negative: \(negativeCount))")
+        print("Account Type: \(isCreditCard ? "Credit Card" : "Debit Card") (positive: \(positiveCount), negative: \(negativeCount))")
         
         // Parse date formats
         let dateFormatter = DateFormatter()
-        let possibleDateFormats = ["yyyy-MM-dd", "MM/dd/yyyy", "dd/MM/yyyy", "yyyy/MM/dd", "M/d/yyyy", "d/M/yyyy"]
+        let possibleDateFormats = ["yyyy-MM-dd", "MM/dd/yyyy", "dd/MM/yyyy", "yyyy/MM/dd", "M/d/yyyy", "d/M/yyyy", "MM-dd-yyyy", "dd-MM-yyyy"]
+        
+        // Store transaction dates for range calculation
+        var earliestDate: Date?
+        var latestDate: Date?
+        var totalAmount: Double = 0
+        var categoryDistribution: [String: Int] = [:]
         
         // Process each row
-        for row in rows {
-            guard let dateString = row.indices.contains(dateColumnIndex) ? row[dateColumnIndex] : nil,
-                  let desc = row.indices.contains(descColumnIndex) ? row[descColumnIndex] : nil,
-                  let amountString = row.indices.contains(amountColumnIndex) ? row[amountColumnIndex] : nil
+        for (rowIndex, row) in rows.enumerated() {
+            guard let dateString = row.indices.contains(dateCol) ? row[dateCol] : nil,
+                  let amountString = row.indices.contains(amountCol) ? row[amountCol] : nil
             else { continue }
             
             // Parse date
@@ -404,42 +485,217 @@ class DataImportService {
                     break
                 }
             }
-            if date == nil { continue }
+            if date == nil {
+                print("Warning: Could not parse date '\(dateString)' - skipping row")
+                continue
+            }
+            
+            // Update date range
+            if let validDate = date {
+                if earliestDate == nil || validDate < earliestDate! {
+                    earliestDate = validDate
+                }
+                if latestDate == nil || validDate > latestDate! {
+                    latestDate = validDate
+                }
+            }
             
             // Parse amount
             let cleanAmountStr = amountString
                 .replacingOccurrences(of: "$", with: "")
                 .replacingOccurrences(of: ",", with: "")
                 .trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
-            guard let rawAmount = Double(cleanAmountStr) else { continue }
+            guard let rawAmount = Double(cleanAmountStr) else {
+                print("Warning: Could not parse amount '\(amountString)' - skipping row")
+                continue
+            }
             
-            // Apply card type filter
-            if isCreditCard && rawAmount < 0 { continue }
-            if !isCreditCard && rawAmount > 0 { continue }
+            // Update total amount
+            totalAmount += abs(rawAmount)
+            
+            // Apply card type filter if needed
+            // Uncomment these if you want to filter transactions based on detected card type
+            // if isCreditCard && rawAmount < 0 { continue }
+            // if !isCreditCard && rawAmount > 0 { continue }
+            
+            // CRITICAL PART: Create meaningful description using multiple sources
+            var transactionDescription = ""
+            
+            // Try to get description from description column
+            if let descIndex = descColumnIndex,
+               let desc = row.indices.contains(descIndex) ? row[descIndex] : nil,
+               !desc.isEmpty && desc != dateString { // Make sure we're not using the date as the description
+                transactionDescription = desc.trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+            // If no description found, try merchant column
+            else if let merchIndex = merchantColumnIndex,
+                    let merchant = row.indices.contains(merchIndex) ? row[merchIndex] : nil,
+                    !merchant.isEmpty && merchant != dateString {
+                transactionDescription = merchant.trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+            // If still no description, try note column
+            else if let noteIndex = noteColumnIndex,
+                    let note = row.indices.contains(noteIndex) ? row[noteIndex] : nil,
+                    !note.isEmpty && note != dateString {
+                transactionDescription = note.trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+            // Last resort: create a default description
+            else {
+                transactionDescription = "Transaction \(rowIndex + 1)"
+            }
+            
+            // Clean up the description
+            transactionDescription = cleanupTransactionDescription(transactionDescription)
+            
+            // Make sure we're not using date as description
+            if isDateString(transactionDescription) {
+                transactionDescription = "Transaction on \(dateString)"
+            }
+            
+            // Debug the first few rows
+            if rowIndex < 3 {
+                print("Row \(rowIndex + 1): Date=\(dateString), Amount=\(amountString), Description='\(transactionDescription)'")
+            }
             
             // Parse or suggest category
             var finalCategory: ImportCategory?
             if let catIndex = categoryColumnIndex,
-               let csvCategory = row.indices.contains(catIndex) ? row[catIndex] : nil {
-                finalCategory = parseImportCategory(from: csvCategory) ?? suggestCategory(for: desc)
+               let csvCategory = row.indices.contains(catIndex) ? row[catIndex] : nil,
+               !csvCategory.isEmpty {
+                finalCategory = parseImportCategory(from: csvCategory) ?? suggestCategory(for: transactionDescription)
             } else {
-                finalCategory = suggestCategory(for: desc)
+                finalCategory = suggestCategory(for: transactionDescription)
             }
+            
+            // Update category distribution
+            if let category = finalCategory {
+                let categoryName = category.rawValue
+                categoryDistribution[categoryName] = (categoryDistribution[categoryName] ?? 0) + 1
+            }
+            
+            // Determine confidence based on presence of description and category
+            let confidence: Double = {
+                if !transactionDescription.isEmpty && transactionDescription != "Transaction \(rowIndex + 1)" {
+                    return finalCategory != nil ? 0.9 : 0.7 // Higher confidence with both description and category
+                } else {
+                    return finalCategory != nil ? 0.6 : 0.4 // Lower confidence without proper description
+                }
+            }()
+            
+            // Determine if necessary based on category and description
+            let isNecessary: Bool? = finalCategory?.toExpenseCategory().isTypicallyNecessary
             
             // Create transaction
             let transaction = ImportedTransaction(
                 date: date!,
-                description: desc,
+                description: transactionDescription,
                 amount: abs(rawAmount),
                 rawText: row.joined(separator: ","),
+                confidence: confidence,
                 suggestedCategory: finalCategory,
-                isNecessary: nil
+                isNecessary: isNecessary
             )
+            
             transactions.append(transaction)
         }
         
-        print("Successfully parsed \(transactions.count) transactions from CSV")
+        // Log summary information
+        print("CSV Import Summary:")
+        print("- Successfully parsed \(transactions.count) transactions")
+        if let early = earliestDate, let late = latestDate {
+            let formatter = DateFormatter()
+            formatter.dateStyle = .medium
+            print("- Date range: \(formatter.string(from: early)) to \(formatter.string(from: late))")
+        }
+        print("- Total amount: $\(String(format: "%.2f", totalAmount))")
+        
+        // Log category distribution
+        if !categoryDistribution.isEmpty {
+            print("- Category distribution:")
+            for (category, count) in categoryDistribution.sorted(by: { $0.value > $1.value }) {
+                print("  • \(category): \(count) transactions")
+            }
+        }
+        
+        // Log sample transactions
+        if !transactions.isEmpty {
+            print("Sample transaction descriptions:")
+            for i in 0..<min(5, transactions.count) {
+                print("\(i+1): '\(transactions[i].description)' - $\(String(format: "%.2f", transactions[i].amount))")
+            }
+        }
+        
         return transactions
+    }
+
+    // Helper function to clean up transaction descriptions
+    private func cleanupTransactionDescription(_ raw: String) -> String {
+        var desc = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        // Remove common transaction prefixes
+        let prefixes = [
+            "PURCHASE AT ", "PURCHASE FROM ", "POS PURCHASE ", "DEBIT CARD PURCHASE ",
+            "PAYMENT TO ", "WITHDRAWAL AT ", "TRANSACTION - ", "POS DEBIT ", "ACH DEBIT - ",
+            "ONLINE PAYMENT TO ", "CHECK CARD PURCHASE ", "ELECTRONIC PAYMENT ", "POS "
+        ]
+        
+        for prefix in prefixes {
+            if desc.uppercased().hasPrefix(prefix) {
+                desc = String(desc.dropFirst(prefix.count))
+                break
+            }
+        }
+        
+        // Handle descriptions with multiple parts (often separated by "-" or "*")
+        if desc.contains("-") || desc.contains("*") {
+            let separators = ["-", "*", "–", "—"] // Include various dash types
+            for separator in separators {
+                let components = desc.components(separatedBy: separator)
+                if components.count > 1 {
+                    // Usually, the merchant name is the last component (but make sure it's not empty)
+                    if let lastPart = components.last?.trimmingCharacters(in: .whitespacesAndNewlines),
+                       !lastPart.isEmpty {
+                        desc = lastPart
+                        break
+                    }
+                }
+            }
+        }
+        
+        // Remove any trailing transaction numbers or references in parentheses
+        if let range = desc.range(of: #"\s*\(.*\)\s*$"#, options: .regularExpression) {
+            desc = String(desc[..<range.lowerBound])
+        }
+        
+        // Remove trailing spaces, punctuation
+        desc = desc.trimmingCharacters(in: .whitespacesAndNewlines)
+        desc = desc.trimmingCharacters(in: CharacterSet(charactersIn: ".,;:"))
+        
+        // Make sure we still have a valid description
+        if desc.isEmpty {
+            desc = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        
+        return desc
+    }
+
+    // Helper function to check if a string looks like a date
+    private func isDateString(_ str: String) -> Bool {
+        // Check for common date patterns
+        let dateRegexPatterns = [
+            "^\\d{1,2}/\\d{1,2}/\\d{2,4}$", // MM/DD/YYYY or DD/MM/YYYY
+            "^\\d{1,2}-\\d{1,2}-\\d{2,4}$", // MM-DD-YYYY or DD-MM-YYYY
+            "^\\d{4}-\\d{1,2}-\\d{1,2}$",   // YYYY-MM-DD
+            "^\\d{4}/\\d{1,2}/\\d{1,2}$"    // YYYY/MM/DD
+        ]
+        
+        for pattern in dateRegexPatterns {
+            if str.range(of: pattern, options: .regularExpression) != nil {
+                return true
+            }
+        }
+        
+        return false
     }
     
     // Helper function to parse a CSV row accounting for quoted values

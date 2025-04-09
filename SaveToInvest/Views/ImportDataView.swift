@@ -174,38 +174,98 @@ struct ImportDataView: View {
     
     // 交易预览视图
     private var transactionPreviewView: some View {
-        VStack {
-            if importedTransactions.isEmpty {
-                Text("No recognizable transactions found")
-                    .padding()
+        VStack(spacing: 0) {
+            // Navigation bar replacement
+            HStack {
+                Text("Preview Imported Data")
+                    .font(.title2)
+                    .fontWeight(.bold)
                 
-                Button("Return to File Selection") {
+                Spacer()
+                
+                Button("Back") {
                     withAnimation {
                         currentStep = 1
                     }
                 }
-                .padding()
+            }
+            .padding()
+            
+            if importedTransactions.isEmpty {
+                Spacer()
+                Text("No recognizable transactions found")
+                    .padding()
+                Spacer()
             } else {
-                // 交易列表
-                List {
-                    ForEach(importedTransactions) { transaction in
-                        TransactionPreviewRow(transaction: transaction)
+                // List of transactions with your desired format
+                ScrollView {
+                    VStack(spacing: 0) {
+                        ForEach(importedTransactions) { transaction in
+                            VStack(alignment: .leading, spacing: 4) {
+                                // Top row: date and amount
+                                HStack {
+                                    // Format date as MM/DD/YYYY
+                                    Text(formatDate(transaction.date, format: "MM/dd/yyyy"))
+                                        .font(.headline)
+                                    
+                                    Spacer()
+                                    
+                                    // Amount
+                                    Text("$\(String(format: "%.2f", transaction.amount))")
+                                        .font(.headline)
+                                }
+                                
+                                // Second row: formatted date and description
+                                HStack {
+                                    // Full month name date
+                                    Text(formatDate(transaction.date, format: "MMM d, yyyy"))
+                                        .font(.subheadline)
+                                        .foregroundColor(.gray)
+                                    
+                                    Spacer()
+                                    
+                                    // Category with icon
+                                    if let category = transaction.suggestedCategory {
+                                        HStack(spacing: 4) {
+                                            Image(systemName: category.icon)
+                                                .foregroundColor(.blue)
+                                            
+                                            Text(category.rawValue)
+                                                .foregroundColor(.blue)
+                                        }
+                                    }
+                                }
+                                
+                                // Add the actual description/name of the transaction
+                                Text(transaction.description)
+                                    .font(.subheadline)
+                                    .foregroundColor(.white)
+                                
+                                Divider()
+                                    .background(Color.gray.opacity(0.3))
+                                    .padding(.top, 8)
+                            }
+                            .padding(.horizontal)
+                            .padding(.vertical, 8)
+                        }
                     }
                 }
+                .background(Color(.systemGray6))
                 
-                // 导入按钮
+                // Import button - match the style in your screenshot
                 Button(action: importTransactions) {
                     HStack {
-                        Image(systemName: "arrow.down.doc")
+                        Image(systemName: "square.and.arrow.down")
                         Text("Import \(importedTransactions.count) transactions")
+                            .fontWeight(.semibold)
                     }
                     .frame(maxWidth: .infinity)
                     .padding()
                     .background(Color.green)
                     .foregroundColor(.white)
                     .cornerRadius(10)
+                    .padding()
                 }
-                .padding()
                 .disabled(isLoading)
                 
                 if isLoading {
@@ -217,6 +277,13 @@ struct ImportDataView: View {
                 }
             }
         }
+    }
+
+    // Helper function for date formatting
+    private func formatDate(_ date: Date, format: String) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = format
+        return formatter.string(from: date)
     }
     
     // 处理文件选择
@@ -259,6 +326,50 @@ struct ImportDataView: View {
         }
     }
     
+    // Helper function to convert ImportCategory to ExpenseCategory
+    private func convertToExpenseCategory(_ importCategory: ImportCategory?) -> ExpenseCategory {
+        guard let importCategory = importCategory else {
+            return .other
+        }
+        
+        switch importCategory {
+        case .food:
+            return .food
+        case .dining:
+            return .food  // Map dining to food category
+        case .housing:
+            return .housing
+        case .transportation:
+            return .transportation
+        case .entertainment:
+            return .entertainment
+        case .utilities:
+            return .utilities
+        case .healthcare:
+            return .healthcare
+        case .insurance:
+            return .healthcare  // Map insurance to healthcare
+        case .shopping:
+            return .shopping
+        case .education:
+            return .education
+        case .travel:
+            return .travel
+        case .subscription:
+            return .entertainment  // Map subscription to entertainment
+        case .fitness:
+            return .healthcare  // Map fitness to healthcare
+        case .books:
+            return .education  // Map books to education
+        case .electronics:
+            return .shopping  // Map electronics to shopping
+        case .gaming:
+            return .entertainment  // Map gaming to entertainment
+        case .other:
+            return .other
+        }
+    }
+    
     // 执行交易导入
     private func importTransactions() {
         guard !importedTransactions.isEmpty, let userId = viewModel.firebaseService.currentUser?.id else {
@@ -277,17 +388,17 @@ struct ImportDataView: View {
             var successCount = 0
             
             for transaction in batch {
-                // 使用建议的类别，或默认为"其他"
-                let category = transaction.suggestedCategory ?? .other
+                // Get the import category
+                let importCategory = transaction.suggestedCategory ?? .other
                 
-                // 判断是否必要支出（这里使用类别默认属性，可以根据需要调整）
-                let isNecessary = category.isTypicallyNecessary
+                // Convert to expense category
+                let expenseCategory = convertToExpenseCategory(importCategory)
                 
-                // 创建支出对象
+                // Use the converted category
                 let expense = transaction.toExpense(
                     userId: userId,
-                    category: category,
-                    isNecessary: isNecessary
+                    category: expenseCategory,
+                    isNecessary: importCategory.isTypicallyNecessary
                 )
                 
                 // 保存到Firebase
@@ -325,7 +436,7 @@ struct ImportDataView: View {
     }
 }
 
-// 交易预览行
+
 struct TransactionPreviewRow: View {
     let transaction: ImportedTransaction
     
@@ -335,41 +446,53 @@ struct TransactionPreviewRow: View {
         return formatter
     }
     
+    private var shortDateFormatter: DateFormatter {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MM/dd/yyyy"
+        return formatter
+    }
+    
     var body: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(transaction.description)
-                    .font(.headline)
-                    .lineLimit(1)
+        VStack(alignment: .leading, spacing: 4) {
+            // Main row with description and amount
+            HStack {
+                // Left side: Description as primary focus
+                VStack(alignment: .leading, spacing: 4) {
+                    // Main transaction description
+                    Text(transaction.description)
+                        .font(.headline)
+                        .lineLimit(1)
+                    
+                    // Date below in smaller text
+                    Text(dateFormatter.string(from: transaction.date))
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
                 
-                Text(dateFormatter.string(from: transaction.date))
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-            
-            Spacer()
-            
-            VStack(alignment: .trailing, spacing: 4) {
-                Text("$\(String(format: "%.2f", abs(transaction.amount)))")
-                    .font(.headline)
-                    .foregroundColor(transaction.amount < 0 ? .red : .primary)
+                Spacer()
                 
-                if let category = transaction.suggestedCategory {
-                    HStack {
-                        Image(systemName: category.icon)
-                            .foregroundColor(.blue)
-                        
-                        Text(category.rawValue)
-                            .font(.caption)
+                // Right side: Amount and category
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text("$\(String(format: "%.2f", abs(transaction.amount)))")
+                        .font(.headline)
+                        .foregroundColor(.primary)
+                    
+                    if let category = transaction.suggestedCategory {
+                        HStack {
+                            Text(category.rawValue)
+                                .font(.caption)
+                            
+                            Image(systemName: category.icon)
+                                .foregroundColor(.blue)
+                        }
                     }
                 }
             }
+            .padding(.vertical, 2)
         }
-        .padding(.vertical, 4)
     }
 }
 
-// 文档选择器
 struct DocumentPicker: UIViewControllerRepresentable {
     let fileTypes: [UTType]
     let onPicked: ([URL]) -> Void
