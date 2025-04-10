@@ -33,29 +33,46 @@ enum ImportError: Error {
 
 // Since ExpenseCategory likely exists elsewhere in your project,
 // use an internal enum for the import service and then map to your app's type
-enum ImportCategory: String {
-    case housing, utilities, food, dining, transportation, entertainment, healthcare, insurance, shopping, education, travel, subscription, fitness, books, electronics, gaming, other
+enum ImportCategory: String, CaseIterable {
+    case housing = "Housing"
+    case utilities = "Utilities"
+    case food = "Food"
+    case dining = "Dining"
+    case transportation = "Transportation"
+    case entertainment = "Entertainment"
+    case healthcare = "Healthcare"
+    case insurance = "Insurance"
+    case shopping = "Shopping"
+    case education = "Education"
+    case travel = "Travel"
+    case subscription = "Subscription"
+    case fitness = "Fitness"
+    case books = "Books"
+    case electronics = "Electronics"
+    case gaming = "Gaming"
+    case other = "Other"
     
     // Add icon property
     var icon: String {
         switch self {
-        case .food, .dining: return "fork.knife"
+        case .food: return "fork.knife"
+        case .dining: return "cup.and.saucer"
         case .housing: return "house"
         case .transportation: return "car"
         case .entertainment: return "film"
         case .utilities: return "bolt"
         case .healthcare, .fitness: return "heart"
+        case .insurance: return "lock.shield"
         case .shopping, .books, .electronics: return "bag"
         case .education: return "book"
         case .travel: return "airplane"
-        case .insurance: return "lock.shield"
         case .subscription: return "repeat"
         case .gaming: return "gamecontroller"
         case .other: return "ellipsis.circle"
         }
     }
 
-    // Add isTypicallyNecessary property
+    // More nuanced isTypicallyNecessary property
     var isTypicallyNecessary: Bool {
         switch self {
         case .food, .housing, .transportation, .utilities, .healthcare, .insurance, .education:
@@ -65,11 +82,46 @@ enum ImportCategory: String {
         }
     }
     
-
-    // Convert to the app's ExpenseCategory type
+    // Improved mapping to ExpenseCategory
     func toExpenseCategory() -> ExpenseCategory {
-        // Use the string value to create the actual ExpenseCategory
-        return ExpenseCategory(rawValue: self.rawValue) ?? .other
+        switch self {
+        case .housing:
+            return .housing
+        case .food, .dining:
+            return .food
+        case .transportation:
+            return .transportation
+        case .utilities:
+            return .utilities
+        case .healthcare, .fitness, .insurance:
+            return .healthcare
+        case .shopping, .electronics:
+            return .shopping
+        case .education, .books:
+            return .education
+        case .entertainment, .gaming, .subscription:
+            return .entertainment
+        case .travel:
+            return .travel
+        case .other:
+            return .other
+        }
+    }
+    
+    // Helper to determine confidence in classification
+    var classificationConfidence: Double {
+        switch self {
+        case .housing, .utilities, .healthcare, .insurance:
+            return 0.9 // High confidence categories
+        case .food, .transportation, .education:
+            return 0.8 // Medium-high confidence
+        case .dining, .entertainment, .travel:
+            return 0.7 // Medium confidence
+        case .shopping, .subscription, .electronics, .gaming, .books, .fitness:
+            return 0.6 // Medium-low confidence
+        case .other:
+            return 0.5 // Low confidence
+        }
     }
 }
 
@@ -741,54 +793,163 @@ class DataImportService {
         return result
     }
     
-    // MARK: - Updated category suggestion function
+    // MARK: - Improved category suggestion function
     
     private func suggestCategory(for description: String) -> ImportCategory {
         let desc = description.lowercased()
         
-        if desc.contains("rent") || desc.contains("mortgage") || desc.contains("housing") {
+        // Housing
+        if desc.contains("rent") || desc.contains("mortgage") ||
+           desc.contains("apartment") || desc.contains("home") ||
+           desc.contains("property") || desc.contains("housing") ||
+           desc.contains("real estate") {
             return .housing
-        } else if desc.contains("electricity") || desc.contains("water") ||
-                    desc.contains("gas bill") || desc.contains("internet") ||
-                    desc.contains("phone") || desc.contains("utilities") {
+        }
+        
+        // Utilities
+        if desc.contains("electric") || desc.contains("water") ||
+           desc.contains("gas bill") || desc.contains("internet") ||
+           desc.contains("phone") || desc.contains("utilities") ||
+           desc.contains("sewage") || desc.contains("cable") ||
+           desc.contains("broadband") || desc.contains("cellular") ||
+           desc.contains("wi-fi") || desc.contains("utility") {
             return .utilities
-        } else if desc.contains("grocery") || desc.contains("supermarket") || desc.contains("food") {
+        }
+        
+        // Food (groceries)
+        if desc.contains("grocery") || desc.contains("supermarket") ||
+           desc.contains("food") || desc.contains("market") ||
+           desc.contains("safeway") || desc.contains("kroger") ||
+           desc.contains("trader joe") || desc.contains("whole foods") ||
+           desc.contains("aldi") || desc.contains("wegmans") ||
+           desc.contains("walmart supercenter") {
             return .food
-        } else if desc.contains("restaurant") || desc.contains("dining") || desc.contains("cafe") || desc.contains("coffee") {
+        }
+        
+        // Dining (restaurants)
+        if desc.contains("restaurant") || desc.contains("dining") ||
+           desc.contains("cafe") || desc.contains("coffee") ||
+           desc.contains("starbucks") || desc.contains("mcdonald") ||
+           desc.contains("burger") || desc.contains("pizza") ||
+           desc.contains("taco") || desc.contains("grubhub") ||
+           desc.contains("doordash") || desc.contains("ubereats") ||
+           desc.contains("deli") || desc.contains("bakery") {
             return .dining
-        } else if desc.contains("uber") || desc.contains("lyft") || desc.contains("taxi") ||
-                    desc.contains("cab") || desc.contains("bus") || desc.contains("metro") ||
-                    desc.contains("transport") {
+        }
+        
+        // Transportation
+        if desc.contains("uber") || desc.contains("lyft") ||
+           desc.contains("taxi") || desc.contains("cab") ||
+           desc.contains("bus") || desc.contains("metro") ||
+           desc.contains("subway") || desc.contains("train") ||
+           desc.contains("transport") || desc.contains("gas station") ||
+           desc.contains("fuel") || desc.contains("exxon") ||
+           desc.contains("shell") || desc.contains("chevron") ||
+           desc.contains("parkn") || desc.contains("parking") ||
+           desc.contains("toll") || desc.contains("transit") {
             return .transportation
-        } else if desc.contains("movie") || desc.contains("netflix") || desc.contains("hulu") ||
-                    desc.contains("entertainment") || desc.contains("spotify") || desc.contains("music") {
+        }
+        
+        // Entertainment
+        if desc.contains("movie") || desc.contains("netflix") ||
+           desc.contains("hulu") || desc.contains("entertainment") ||
+           desc.contains("spotify") || desc.contains("music") ||
+           desc.contains("theater") || desc.contains("concert") ||
+           desc.contains("cinema") || desc.contains("ticket") ||
+           desc.contains("disney+") || desc.contains("prime video") ||
+           desc.contains("hbo") || desc.contains("apple tv") {
             return .entertainment
-        } else if desc.contains("doctor") || desc.contains("hospital") || desc.contains("medical") ||
-                    desc.contains("health") || desc.contains("pharmacy") {
+        }
+        
+        // Healthcare
+        if desc.contains("doctor") || desc.contains("hospital") ||
+           desc.contains("medical") || desc.contains("health") ||
+           desc.contains("pharmacy") || desc.contains("dental") ||
+           desc.contains("vision") || desc.contains("clinic") ||
+           desc.contains("walgreens") || desc.contains("cvs") ||
+           desc.contains("therapy") || desc.contains("prescription") {
             return .healthcare
-        } else if desc.contains("insurance") {
+        }
+        
+        // Insurance
+        if desc.contains("insurance") || desc.contains("state farm") ||
+           desc.contains("geico") || desc.contains("allstate") ||
+           desc.contains("progressive") || desc.contains("covered") ||
+           desc.contains("policy") {
             return .insurance
-        } else if desc.contains("amazon") || desc.contains("shop") || desc.contains("store") ||
-                    desc.contains("mall") {
+        }
+        
+        // Shopping
+        if desc.contains("amazon") || desc.contains("target") ||
+           desc.contains("walmart") || desc.contains("costco") ||
+           desc.contains("best buy") || desc.contains("mall") ||
+           desc.contains("macy") || desc.contains("nordstrom") ||
+           desc.contains("marshalls") || desc.contains("tjmaxx") ||
+           desc.contains("kohl") || desc.contains("shopping") ||
+           desc.contains("store") {
             return .shopping
-        } else if desc.contains("tuition") || desc.contains("school") || desc.contains("education") ||
-                    desc.contains("college") || desc.contains("university") {
+        }
+        
+        // Education
+        if desc.contains("tuition") || desc.contains("school") ||
+           desc.contains("education") || desc.contains("college") ||
+           desc.contains("university") || desc.contains("class") ||
+           desc.contains("course") || desc.contains("student loan") ||
+           desc.contains("textbook") || desc.contains("educational") {
             return .education
-        } else if desc.contains("hotel") || desc.contains("flight") || desc.contains("airbnb") ||
-                    desc.contains("travel") {
+        }
+        
+        // Travel
+        if desc.contains("hotel") || desc.contains("flight") ||
+           desc.contains("airbnb") || desc.contains("travel") ||
+           desc.contains("airline") || desc.contains("delta") ||
+           desc.contains("southwest") || desc.contains("united") ||
+           desc.contains("american airlines") || desc.contains("vacation") ||
+           desc.contains("resort") || desc.contains("booking.com") ||
+           desc.contains("expedia") || desc.contains("trip") {
             return .travel
-        } else if desc.contains("subscription") || desc.contains("membership") {
+        }
+        
+        // Subscription services
+        if desc.contains("subscription") || desc.contains("membership") ||
+           desc.contains("monthly") || desc.contains("annual fee") ||
+           desc.contains("renew") || desc.contains("plan") {
             return .subscription
-        } else if desc.contains("gym") || desc.contains("fitness") {
+        }
+        
+        // Fitness
+        if desc.contains("gym") || desc.contains("fitness") ||
+           desc.contains("peloton") || desc.contains("workout") ||
+           desc.contains("exercise") || desc.contains("athletic") ||
+           desc.contains("yoga") || desc.contains("sport") {
             return .fitness
-        } else if desc.contains("book") || desc.contains("magazine") {
+        }
+        
+        // Books
+        if desc.contains("book") || desc.contains("barnes") ||
+           desc.contains("magazine") || desc.contains("publication") ||
+           desc.contains("kindle") || desc.contains("audible") {
             return .books
-        } else if desc.contains("electronics") || desc.contains("gadget") {
+        }
+        
+        // Electronics
+        if desc.contains("electronics") || desc.contains("tech") ||
+           desc.contains("gadget") || desc.contains("computer") ||
+           desc.contains("laptop") || desc.contains("phone") ||
+           desc.contains("camera") || desc.contains("apple") ||
+           desc.contains("samsung") || desc.contains("device") {
             return .electronics
-        } else if desc.contains("game") || desc.contains("gaming") {
+        }
+        
+        // Gaming
+        if desc.contains("game") || desc.contains("gaming") ||
+           desc.contains("playstation") || desc.contains("xbox") ||
+           desc.contains("nintendo") || desc.contains("steam") ||
+           desc.contains("twitch") {
             return .gaming
         }
         
+        // Default to "other" if no category is matched
         return .other
     }
     
@@ -868,5 +1029,189 @@ class DataImportService {
         }
         
         processNextBatch()
+    }
+}
+
+// Extension to add the improved classification functionality
+extension DataImportService {
+    
+    // Main function to improve necessity classification of imported transactions
+    func improveNecessityClassification(_ transactions: [ImportedTransaction]) -> [ImportedTransaction] {
+        var improvedTransactions = transactions
+        
+        // Access the classifier service
+        let classifier = ExpenseClassifierService.shared
+        
+        for i in 0..<improvedTransactions.count {
+            // Start with category-based classification
+            let category = improvedTransactions[i].suggestedCategory ?? .other
+            let initialNecessity = category.isTypicallyNecessary
+            
+            // Get transaction details
+            let title = improvedTransactions[i].description
+            let amount = improvedTransactions[i].amount
+            
+            // Use ML-based classification from the existing ExpenseClassifierService
+            // Convert ImportCategory to ExpenseCategory for classification
+            let expenseCategory = category.toExpenseCategory()
+            let predictedNecessity = classifier.predictIsNecessary(
+                title: title,
+                amount: amount,
+                category: expenseCategory
+            )
+            
+            // Apply additional heuristics for specific transactions
+            let necessityFromHeuristics = analyzeTransactionWithHeuristics(
+                title: title,
+                amount: amount,
+                category: category
+            )
+            
+            // Determine final classification (prioritize heuristics over ML prediction)
+            let finalNecessity: Bool
+            
+            if let necessityFromHeuristics = necessityFromHeuristics {
+                // If our heuristics are confident, use that result
+                finalNecessity = necessityFromHeuristics
+            } else {
+                // Otherwise use ML prediction
+                finalNecessity = predictedNecessity
+            }
+            
+            // Update the transaction
+            improvedTransactions[i].isNecessary = finalNecessity
+        }
+        
+        return improvedTransactions
+    }
+    
+    // Apply specific heuristics for common transaction patterns
+    private func analyzeTransactionWithHeuristics(
+        title: String,
+        amount: Double,
+        category: ImportCategory
+    ) -> Bool? {
+        // Normalize the title for better matching
+        let normalizedTitle = title.lowercased()
+        
+        // DEFINITE NECESSARY EXPENSES
+        
+        // Housing/Utilities (always necessary)
+        if category == .housing || category == .utilities {
+            // Very high amounts might be luxury upgrades or renovation
+            if amount > 3000 && !normalizedTitle.contains("rent") && !normalizedTitle.contains("mortgage") {
+                return false // Possibly a home improvement/renovation
+            }
+            return true
+        }
+        
+        // Medical expenses (mostly necessary)
+        if normalizedTitle.contains("pharmacy") ||
+           normalizedTitle.contains("doctor") ||
+           normalizedTitle.contains("hospital") ||
+           normalizedTitle.contains("clinic") ||
+           normalizedTitle.contains("medical") {
+            // High cost elective procedures might be non-necessary
+            if amount > 1000 && (normalizedTitle.contains("cosmetic") || normalizedTitle.contains("elective")) {
+                return false
+            }
+            return true
+        }
+        
+        // Insurance payments (necessary)
+        if normalizedTitle.contains("insurance") {
+            return true
+        }
+        
+        // Education essentials (necessary)
+        if category == .education && (
+            normalizedTitle.contains("tuition") ||
+            normalizedTitle.contains("textbook") ||
+            normalizedTitle.contains("school fee")
+        ) {
+            return true
+        }
+        
+        // Transportation necessities
+        if category == .transportation && (
+            normalizedTitle.contains("gas") ||
+            normalizedTitle.contains("fuel") ||
+            normalizedTitle.contains("transit") ||
+            normalizedTitle.contains("bus") ||
+            normalizedTitle.contains("train") ||
+            normalizedTitle.contains("subway") ||
+            normalizedTitle.contains("commute")
+        ) {
+            return true
+        }
+        
+        // DEFINITE NON-NECESSARY EXPENSES
+        
+        // Entertainment is generally non-necessary
+        if category == .entertainment {
+            return false
+        }
+        
+        // Restaurants and dining out
+        if normalizedTitle.contains("restaurant") ||
+           normalizedTitle.contains("cafe") ||
+           normalizedTitle.contains("coffee") ||
+           normalizedTitle.contains("starbucks") ||
+           normalizedTitle.contains("mcdonalds") ||
+           normalizedTitle.contains("burger") ||
+           normalizedTitle.contains("pizza") {
+            // Fast food and coffee shops are almost always discretionary
+            return false
+        }
+        
+        // Shopping typically non-necessary
+        if category == .shopping && amount > 100 {
+            // High value shopping is likely discretionary
+            return false
+        }
+        
+        // Travel is non-necessary
+        if category == .travel {
+            return false
+        }
+        
+        // Subscription services
+        if normalizedTitle.contains("netflix") ||
+           normalizedTitle.contains("spotify") ||
+           normalizedTitle.contains("hulu") ||
+           normalizedTitle.contains("disney+") ||
+           normalizedTitle.contains("prime") ||
+           normalizedTitle.contains("subscription") {
+            return false
+        }
+        
+        // AMBIGUOUS CASES - return nil to let ML classifier decide
+        
+        // Grocery stores could be necessary (food) or unnecessary (snacks, alcohol)
+        if normalizedTitle.contains("grocery") ||
+           normalizedTitle.contains("supermarket") ||
+           normalizedTitle.contains("walmart") ||
+           normalizedTitle.contains("target") {
+            // High grocery bills might include more discretionary items
+            if amount > 200 {
+                return false
+            }
+            if amount < 100 {
+                return true
+            }
+            return nil // Let ML decide moderate grocery bills
+        }
+        
+        // Payments/transfers may need more context
+        if normalizedTitle.contains("payment") ||
+           normalizedTitle.contains("transfer") ||
+           normalizedTitle.contains("zelle") ||
+           normalizedTitle.contains("venmo") ||
+           normalizedTitle.contains("paypal") {
+            return nil // Need more context to decide
+        }
+        
+        // Return nil for ambiguous cases to let the ML classifier decide
+        return nil
     }
 }

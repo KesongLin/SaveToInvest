@@ -484,6 +484,13 @@ struct ImportDataView: View {
                 .navigationBarItems(
                     leading: Button("Cancel", action: onCancel),
                     trailing: Button("Save") {
+                        // Add the classifier learning code here
+                        TransactionClassifier.shared.learnFromCorrection(
+                            transaction: transaction,
+                            isNecessary: isNecessary
+                        )
+                        
+                        // Call the existing onSelect handler
                         onSelect(selectedCategory, isNecessary)
                     }
                 )
@@ -555,6 +562,10 @@ struct ImportDataView: View {
         if let index = importedTransactions.firstIndex(where: { $0.id == transaction.id }) {
             let currentValue = importedTransactions[index].isNecessary ?? false
             importedTransactions[index].isNecessary = !currentValue
+            
+            TransactionClassifier.shared.learnFromCorrection(
+                        transaction: importedTransactions[index],
+                        isNecessary: !currentValue)
         }
     }
     
