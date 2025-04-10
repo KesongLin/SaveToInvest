@@ -7,7 +7,7 @@
 
 import SwiftUI
 import UIKit
-// Note: No UniformTypeIdentifiers import
+import UniformTypeIdentifiers
 
 struct ImportDataView: View {
     @EnvironmentObject private var viewModel: MainViewModel
@@ -22,18 +22,18 @@ struct ImportDataView: View {
     @State private var selectedFileType: ImportFileType = .pdf
     @State private var importProgress: Double = 0
     
-    // New state for transaction editing
+    // State for transaction editing
     @State private var editingTransaction: ImportedTransaction? = nil
     @State private var showCategoryPicker = false
     
-    // Use your existing enum with proper declaration
+    // File type enum with proper declaration
     enum ImportFileType: String, CaseIterable, Identifiable {
         case pdf = "PDF File"
         case csv = "CSV/Excel File"
         
         var id: String { self.rawValue }
         
-        // Use string-based file type identifiers instead of UTType
+        // String-based file type identifiers
         var fileTypes: [String] {
             switch self {
             case .pdf:
@@ -55,26 +55,8 @@ struct ImportDataView: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            // Single header instead of duplicates
-            HStack {
-                Text("Preview Imported Data")
-                    .font(.title2)
-                    .fontWeight(.bold)
-                
-                Spacer()
-                
-                Button("Back") {
-                    if currentStep == 2 {
-                        withAnimation {
-                            currentStep = 1
-                            importedTransactions = []
-                        }
-                    } else {
-                        presentationMode.wrappedValue.dismiss()
-                    }
-                }
-            }
-            .padding()
+            // Header
+            headerView
             
             if currentStep == 1 {
                 fileSelectionView
@@ -91,7 +73,6 @@ struct ImportDataView: View {
             )
         }
         .sheet(isPresented: $isImporting) {
-            // Use your existing document picker implementation
             DocumentPickerView(
                 fileTypes: selectedFileType.fileTypes,
                 onPicked: handleFileSelection
@@ -102,12 +83,7 @@ struct ImportDataView: View {
                 CategoryPickerView(
                     transaction: transaction,
                     onSelect: { category, isNecessary in
-                        // Update the transaction category
-                        if let index = importedTransactions.firstIndex(where: { $0.id == transaction.id }) {
-                            importedTransactions[index].suggestedCategory = category
-                            importedTransactions[index].isNecessary = isNecessary
-                        }
-                        showCategoryPicker = false
+                        updateTransactionCategory(transaction, category: category, isNecessary: isNecessary)
                     },
                     onCancel: {
                         showCategoryPicker = false
@@ -117,80 +93,42 @@ struct ImportDataView: View {
         }
     }
     
+    // MARK: - View Components
+    
+    private var headerView: some View {
+        HStack {
+            Text("Preview Imported Data")
+                .font(.title2)
+                .fontWeight(.bold)
+            
+            Spacer()
+            
+            Button("Back") {
+                if currentStep == 2 {
+                    withAnimation {
+                        currentStep = 1
+                        importedTransactions = []
+                    }
+                } else {
+                    presentationMode.wrappedValue.dismiss()
+                }
+            }
+        }
+        .padding()
+    }
+    
     // File selection view
     private var fileSelectionView: some View {
         VStack(spacing: 20) {
-            // File type selection
-            VStack(alignment: .leading, spacing: 10) {
-                Text("Select Import File Type")
-                    .font(.headline)
-                
-                ForEach(ImportFileType.allCases) { fileType in
-                    Button(action: {
-                        selectedFileType = fileType
-                    }) {
-                        HStack {
-                            Image(systemName: fileType.icon)
-                                .foregroundColor(.blue)
-                                .frame(width: 30)
-                            
-                            Text(fileType.rawValue)
-                            
-                            Spacer()
-                            
-                            if selectedFileType == fileType {
-                                Image(systemName: "checkmark")
-                                    .foregroundColor(.green)
-                            }
-                        }
-                        .padding()
-                        .background(
-                            RoundedRectangle(cornerRadius: 10)
-                                .fill(selectedFileType == fileType ? Color(.systemGray6) : Color(.systemBackground))
-                        )
-                    }
-                    .buttonStyle(PlainButtonStyle())
-                }
-            }
-            .padding()
+            fileTypeSelectionSection
             
             Spacer()
             
-            // Import instructions
-            VStack(alignment: .leading, spacing: 10) {
-                Text("Import Instructions")
-                    .font(.headline)
-                
-                Text("• Supports most bank statement formats")
-                Text("• The system will automatically identify transaction categories")
-                Text("• You can preview and modify categories before import")
-                Text("• Sensitive data is processed locally and not uploaded")
-            }
-            .padding()
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color(.systemGray6))
-            .cornerRadius(10)
-            .padding()
+            importInstructionsSection
             
             Spacer()
             
-            // Select file button
-            Button(action: {
-                isImporting = true
-            }) {
-                HStack {
-                    Image(systemName: "doc.badge.plus")
-                    Text("Select File")
-                }
-                .frame(maxWidth: .infinity)
-                .padding()
-                .background(Color.blue)
-                .foregroundColor(.white)
-                .cornerRadius(10)
-            }
-            .padding(.horizontal)
-            .padding(.bottom)
-            .disabled(isLoading)
+            selectFileButton
             
             if isLoading {
                 ProgressView("Processing file...")
@@ -199,65 +137,157 @@ struct ImportDataView: View {
         }
     }
     
+    private var fileTypeSelectionSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Select Import File Type")
+                .font(.headline)
+            
+            ForEach(ImportFileType.allCases) { fileType in
+                fileTypeButton(fileType: fileType)
+            }
+        }
+        .padding()
+    }
+    
+    private func fileTypeButton(fileType: ImportFileType) -> some View {
+        Button(action: {
+            selectedFileType = fileType
+        }) {
+            HStack {
+                Image(systemName: fileType.icon)
+                    .foregroundColor(.blue)
+                    .frame(width: 30)
+                
+                Text(fileType.rawValue)
+                
+                Spacer()
+                
+                if selectedFileType == fileType {
+                    Image(systemName: "checkmark")
+                        .foregroundColor(.green)
+                }
+            }
+            .padding()
+            .background(
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(selectedFileType == fileType ? Color(.systemGray6) : Color(.systemBackground))
+            )
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+    
+    private var importInstructionsSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Import Instructions")
+                .font(.headline)
+            
+            Text("• Supports most bank statement formats")
+            Text("• The system will automatically identify transaction categories")
+            Text("• You can preview and modify categories before import")
+            Text("• Sensitive data is processed locally and not uploaded")
+        }
+        .padding()
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(.systemGray6))
+        .cornerRadius(10)
+        .padding()
+    }
+    
+    private var selectFileButton: some View {
+        Button(action: {
+            isImporting = true
+        }) {
+            HStack {
+                Image(systemName: "doc.badge.plus")
+                Text("Select File")
+            }
+            .frame(maxWidth: .infinity)
+            .padding()
+            .background(Color.blue)
+            .foregroundColor(.white)
+            .cornerRadius(10)
+        }
+        .padding(.horizontal)
+        .padding(.bottom)
+        .disabled(isLoading)
+    }
+    
     // Transaction preview view
     private var transactionPreviewView: some View {
         VStack(spacing: 0) {
             if importedTransactions.isEmpty {
-                Spacer()
-                Text("No recognizable transactions found")
-                    .padding()
-                Spacer()
+                emptyTransactionsView
             } else {
-                // Transaction list with editing controls
-                ScrollView {
-                    VStack(spacing: 0) {
-                        ForEach(importedTransactions) { transaction in
-                            EditableTransactionRow(
-                                transaction: transaction,
-                                onCategoryTap: {
-                                    editingTransaction = transaction
-                                    showCategoryPicker = true
-                                },
-                                onDelete: {
-                                    deleteTransaction(transaction)
-                                },
-                                onToggleNecessary: {
-                                    toggleNecessary(transaction)
-                                }
-                            )
-                            
-                            Divider()
-                                .background(Color.gray.opacity(0.3))
-                        }
-                    }
-                    .background(Color(.systemBackground))
-                }
-                
-                // Import button
-                Button(action: importTransactions) {
-                    HStack {
-                        Image(systemName: "arrow.down.doc")
-                        Text("Import \(importedTransactions.count) transactions")
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(Color.green)
-                    .foregroundColor(.white)
-                    .cornerRadius(10)
-                }
-                .padding()
-                .disabled(isLoading)
-                
-                if isLoading {
-                    ProgressView(value: importProgress, total: 1.0)
-                        .padding(.horizontal)
-                    Text("Importing... \(Int(importProgress * 100))%")
-                        .font(.caption)
-                        .padding(.bottom)
+                VStack {
+                    transactionsScrollView
+                    importButtonSection
                 }
             }
         }
     }
+    
+    private var emptyTransactionsView: some View {
+        VStack {
+            Spacer()
+            Text("No recognizable transactions found")
+                .padding()
+            Spacer()
+        }
+    }
+    
+    private var transactionsScrollView: some View {
+        ScrollView {
+            VStack(spacing: 0) {
+                ForEach(importedTransactions) { transaction in
+                    EditableTransactionRow(
+                        transaction: transaction,
+                        onCategoryTap: {
+                            editingTransaction = transaction
+                            showCategoryPicker = true
+                        },
+                        onDelete: {
+                            deleteTransaction(transaction)
+                        },
+                        onToggleNecessary: {
+                            toggleNecessary(transaction)
+                        }
+                    )
+                    
+                    Divider()
+                        .background(Color.gray.opacity(0.3))
+                }
+            }
+            .background(Color(.systemBackground))
+        }
+    }
+    
+    private var importButtonSection: some View {
+        VStack {
+            Button(action: importTransactions) {
+                HStack {
+                    Image(systemName: "arrow.down.doc")
+                    Text("Import \(importedTransactions.count) transactions")
+                }
+                .frame(maxWidth: .infinity)
+                .padding()
+                .background(Color.green)
+                .foregroundColor(.white)
+                .cornerRadius(10)
+            }
+            .padding()
+            .disabled(isLoading)
+            
+            if isLoading {
+                ProgressView(value: importProgress, total: 1.0)
+                    .padding(.horizontal)
+                Text("Importing... \(Int(importProgress * 100))%")
+                    .font(.caption)
+                    .padding(.bottom)
+            }
+        }
+    }
+    
+    // MARK: - Helper Components
     
     // Enhanced transaction row with editing features
     struct EditableTransactionRow: View {
@@ -322,7 +352,6 @@ struct ImportDataView: View {
                 // Description
                 Text(transaction.description)
                     .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(.white)
                 
                 // Action buttons
                 HStack {
@@ -368,6 +397,21 @@ struct ImportDataView: View {
         @State private var selectedCategory: ImportCategory
         @State private var isNecessary: Bool
         
+        // Create a static property with all the categories you want to show
+        // Replace these with your actual ImportCategory cases
+        private static let categories: [ImportCategory] = [
+            .food,
+            .transportation,
+            .housing,
+            .utilities,
+            .entertainment,
+            .shopping,
+            .healthcare,
+            .education,
+            .other
+            // Add all your ImportCategory cases here
+        ]
+        
         init(transaction: ImportedTransaction, onSelect: @escaping (ImportCategory, Bool) -> Void, onCancel: @escaping () -> Void) {
             self.transaction = transaction
             self.onSelect = onSelect
@@ -375,47 +419,65 @@ struct ImportDataView: View {
             
             // Initialize with current values
             _selectedCategory = State(initialValue: transaction.suggestedCategory ?? .other)
-            _isNecessary = State(initialValue: transaction.isNecessary ?? selectedCategory.isTypicallyNecessary)
+            _isNecessary = State(initialValue: transaction.isNecessary ?? transaction.suggestedCategory?.isTypicallyNecessary ?? false)
+        }
+        
+        // Extract transaction info into a separate view
+        private var transactionInfoSection: some View {
+            Section(header: Text("Transaction")) {
+                Text(transaction.description)
+                    .font(.headline)
+                
+                Text("$\(String(format: "%.2f", transaction.amount))")
+                    .font(.subheadline)
+            }
+        }
+        
+        // Extract necessity toggle into a separate view
+        private var necessitySection: some View {
+            Section(header: Text("Is this a necessary expense?")) {
+                Toggle("Necessary Expense", isOn: $isNecessary)
+                    .toggleStyle(SwitchToggleStyle(tint: .green))
+            }
+        }
+        
+        // Extract category selection into a separate view
+        private var categorySection: some View {
+            Section(header: Text("Category")) {
+                ForEach(Self.categories, id: \.self) { category in
+                    categoryButton(for: category)
+                }
+            }
+        }
+        
+        // Extract individual category button into a separate method
+        private func categoryButton(for category: ImportCategory) -> some View {
+            Button(action: {
+                selectedCategory = category
+            }) {
+                HStack {
+                    Image(systemName: category.icon)
+                        .foregroundColor(.blue)
+                    
+                    Text(category.rawValue)
+                    
+                    Spacer()
+                    
+                    if selectedCategory == category {
+                        Image(systemName: "checkmark")
+                            .foregroundColor(.green)
+                    }
+                }
+            }
+            .foregroundColor(.primary)
         }
         
         var body: some View {
             NavigationView {
                 List {
-                    Section(header: Text("Transaction")) {
-                        Text(transaction.description)
-                            .font(.headline)
-                        
-                        Text("$\(String(format: "%.2f", transaction.amount))")
-                            .font(.subheadline)
-                    }
-                    
-                    Section(header: Text("Is this a necessary expense?")) {
-                        Toggle("Necessary Expense", isOn: $isNecessary)
-                            .toggleStyle(SwitchToggleStyle(tint: .green))
-                    }
-                    
-                    Section(header: Text("Category")) {
-                        ForEach(ImportCategory.allCases, id: \.self) { category in
-                            Button(action: {
-                                selectedCategory = category
-                            }) {
-                                HStack {
-                                    Image(systemName: category.icon)
-                                        .foregroundColor(.blue)
-                                    
-                                    Text(category.rawValue)
-                                    
-                                    Spacer()
-                                    
-                                    if selectedCategory == category {
-                                        Image(systemName: "checkmark")
-                                            .foregroundColor(.green)
-                                    }
-                                }
-                            }
-                            .foregroundColor(.primary)
-                        }
-                    }
+                    transactionInfoSection
+                    necessitySection
+                    categorySection
                 }
                 .listStyle(InsetGroupedListStyle())
                 .navigationTitle("Edit Category")
@@ -439,49 +501,45 @@ struct ImportDataView: View {
         // Process based on file type
         switch selectedFileType {
         case .pdf:
-            DataImportService.shared.importPDF(url: url) { result in
-                DispatchQueue.main.async {
-                    self.isLoading = false
-                    
-                    switch result {
-                    case .success(let transactions):
-                        if transactions.isEmpty {
-                            self.errorMessage = "No transaction data could be extracted from the file."
-                            self.showError = true
-                        } else {
-                            self.importedTransactions = transactions
-                            withAnimation {
-                                self.currentStep = 2
-                            }
-                        }
-                    case .failure(let error):
-                        self.errorMessage = error.description
-                        self.showError = true
-                    }
-                }
-            }
+            importPDFFile(url: url)
         case .csv:
-            DataImportService.shared.importCSV(url: url) { result in
-                DispatchQueue.main.async {
-                    self.isLoading = false
-                    
-                    switch result {
-                    case .success(let transactions):
-                        if transactions.isEmpty {
-                            self.errorMessage = "No transaction data could be extracted from the file."
-                            self.showError = true
-                        } else {
-                            self.importedTransactions = transactions
-                            withAnimation {
-                                self.currentStep = 2
-                            }
-                        }
-                    case .failure(let error):
-                        self.errorMessage = error.description
-                        self.showError = true
-                    }
+            importCSVFile(url: url)
+        }
+    }
+    
+    private func importPDFFile(url: URL) {
+        DataImportService.shared.importPDF(url: url) { result in
+            DispatchQueue.main.async {
+                self.handleImportResult(result)
+            }
+        }
+    }
+    
+    private func importCSVFile(url: URL) {
+        DataImportService.shared.importCSV(url: url) { result in
+            DispatchQueue.main.async {
+                self.handleImportResult(result)
+            }
+        }
+    }
+    
+    private func handleImportResult(_ result: Result<[ImportedTransaction], ImportError>) {
+        isLoading = false
+        
+        switch result {
+        case .success(let transactions):
+            if transactions.isEmpty {
+                errorMessage = "No transaction data could be extracted from the file."
+                showError = true
+            } else {
+                importedTransactions = transactions
+                withAnimation {
+                    currentStep = 2
                 }
             }
+        case .failure(let error):
+            errorMessage = error.description
+            showError = true
         }
     }
     
@@ -500,6 +558,15 @@ struct ImportDataView: View {
         }
     }
     
+    // Update transaction category
+    private func updateTransactionCategory(_ transaction: ImportedTransaction, category: ImportCategory, isNecessary: Bool) {
+        if let index = importedTransactions.firstIndex(where: { $0.id == transaction.id }) {
+            importedTransactions[index].suggestedCategory = category
+            importedTransactions[index].isNecessary = isNecessary
+        }
+        showCategoryPicker = false
+    }
+    
     // Import transactions
     private func importTransactions() {
         guard !importedTransactions.isEmpty, let userId = viewModel.firebaseService.currentUser?.id else {
@@ -510,69 +577,104 @@ struct ImportDataView: View {
         importProgress = 0.0
         
         // Use batch processing
+        processTransactionsInBatches(userId: userId)
+    }
+    
+    // Helper method to process transactions in batches
+    private func processTransactionsInBatches(userId: String) {
         DataImportService.shared.processInBatches(
             items: importedTransactions,
-            batchSize: 10
-        ) { batch, completion in
-            // Convert ImportedTransaction to Expense and save
-            var successCount = 0
+            batchSize: 10,
+            process: { batch, completion in
+                processBatch(batch: batch, userId: userId, completion: completion)
+            },
+            completion: handleBatchProcessingCompletion
+        )
+    }
+    
+    // Process a single batch of transactions
+    private func processBatch(batch: [ImportedTransaction], userId: String, completion: @escaping (Bool) -> Void) {
+        var successCount = 0
+        
+        for transaction in batch {
+            // Use the category that was potentially edited by the user
+            let category = transaction.suggestedCategory?.toExpenseCategory() ?? .other
             
-            for transaction in batch {
-                // Use the category that was potentially edited by the user
-                let category = transaction.suggestedCategory?.toExpenseCategory() ?? .other
-                
-                // Use the necessity that was potentially edited by the user
-                let isNecessary = transaction.isNecessary ?? category.isTypicallyNecessary
-                
-                // Create expense object
-                let expense = transaction.toExpense(
-                    userId: userId,
-                    category: category,
-                    isNecessary: isNecessary
-                )
-                
-                // Save to Firebase
-                viewModel.addExpense(
-                    title: expense.title,
-                    amount: expense.amount,
-                    date: expense.date,
-                    category: expense.category,
-                    isNecessary: expense.isNecessary,
-                    notes: expense.notes
-                )
-                
-                successCount += 1
-            }
+            // Use the necessity that was potentially edited by the user
+            let isNecessary = transaction.isNecessary ?? category.isTypicallyNecessary
             
-            // Update progress
-            DispatchQueue.main.async {
-                let progress = Double(successCount) / Double(importedTransactions.count)
-                importProgress = progress
-            }
+            // Create expense object
+            let expense = transaction.toExpense(
+                userId: userId,
+                category: category,
+                isNecessary: isNecessary
+            )
             
-            completion(true)
-        } completion: { success in
-            DispatchQueue.main.async {
-                isLoading = false
-                if success {
-                    // Import complete, return to previous screen
-                    presentationMode.wrappedValue.dismiss()
-                } else {
-                    errorMessage = "Some transactions failed to import."
-                    showError = true
-                }
+            // Save to Firebase
+            viewModel.addExpense(
+                title: expense.title,
+                amount: expense.amount,
+                date: expense.date,
+                category: expense.category,
+                isNecessary: expense.isNecessary,
+                notes: expense.notes
+            )
+            
+            successCount += 1
+        }
+        
+        // Update progress
+        DispatchQueue.main.async {
+            let progress = Double(successCount) / Double(self.importedTransactions.count)
+            self.importProgress = progress
+        }
+        
+        completion(true)
+    }
+    
+    // Handle completion of batch processing
+    private func handleBatchProcessingCompletion(success: Bool) {
+        DispatchQueue.main.async {
+            self.isLoading = false
+            if success {
+                // Import complete, return to previous screen
+                self.presentationMode.wrappedValue.dismiss()
+            } else {
+                self.errorMessage = "Some transactions failed to import."
+                self.showError = true
             }
         }
     }
 }
 
-// MARK: - DocumentPickerView to replace missing DocumentPicker
+// MARK: - DocumentPickerView with fixed initializer
 struct DocumentPickerView: UIViewControllerRepresentable {
     let fileTypes: [String]
     let onPicked: ([URL]) -> Void
     
     func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
-        let picker = UIDocumentPickerViewController(documentTypes: fileTypes, in: .import)
+        let picker: UIDocumentPickerViewController
+        
+        if #available(iOS 14.0, *) {
+            // Convert string identifiers to UTTypes
+            let contentTypes = fileTypes.compactMap { fileType -> UTType? in
+                switch fileType {
+                case "public.pdf":
+                    return .pdf
+                case "public.comma-separated-values-text":
+                    return .commaSeparatedText
+                case "public.spreadsheet":
+                    return .spreadsheet
+                default:
+                    return UTType(fileType)
+                }
+            }
+            picker = UIDocumentPickerViewController(forOpeningContentTypes: contentTypes)
+        } else {
+            // Fallback for iOS 13 and earlier
+            picker = UIDocumentPickerViewController(documentTypes: fileTypes, in: .import)
+        }
+        
         picker.allowsMultipleSelection = false
         picker.delegate = context.coordinator
         return picker
