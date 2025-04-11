@@ -400,7 +400,7 @@ class DataImportService {
         return transactions
     }
     
-    // MARK: Modified CSV parsing without SwiftCSV dependency
+
     private func parseCSV(_ csvString: String) -> [ImportedTransaction] {
         var transactions: [ImportedTransaction] = []
         
