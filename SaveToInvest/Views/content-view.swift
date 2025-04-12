@@ -17,6 +17,10 @@ struct ContentView: View {
                     .environmentObject(viewModel)
                     .environmentObject(viewModel.firebaseService)
                     .environmentObject(viewModel.expenseAnalyzer)
+                    .onAppear {
+                        // Initialize and refresh investment data when the app appears
+                        viewModel.setupInvestmentData()
+                    }
             } else {
                 AuthView()
                     .environmentObject(viewModel)
@@ -41,6 +45,7 @@ struct ContentView: View {
 
 struct MainTabView: View {
     @State private var selectedTab = 0
+    @EnvironmentObject private var viewModel: MainViewModel
 
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -70,6 +75,14 @@ struct MainTabView: View {
         }
         .onAppear {
             setupNotification()
+        }
+        .onChange(of: selectedTab) { newTab in
+            // If the user switches to the Opportunity tab, refresh investment data
+            if newTab == 2 {
+                Task {
+                    await viewModel.refreshInvestmentData()
+                }
+            }
         }
     }
 
