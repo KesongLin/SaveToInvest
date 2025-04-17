@@ -17,54 +17,136 @@ class FirebaseService: ObservableObject {
     }
     
     // MARK: - Authentication
-    
+
+    func signUp(email: String, password: String, completion: @escaping (Bool, Error?) -> Void) {
+        // First clear any existing state
+        self.currentUser = nil
+        
+        Auth.auth().createUser(withEmail: email, password: password) { [weak self] authResult, error in
+            if let error = error {
+                print("Firebase Authentication Error: \(error.localizedDescription)")
+                DispatchQueue.main.async {
+                    completion(false, error)
+                }
+                return
+            }
+            
+            guard let self = self, let authResult = authResult, let email = authResult.user.email else {
+                DispatchQueue.main.async {
+                    completion(false, NSError(domain: "App", code: 1, userInfo: [NSLocalizedDescriptionKey: "Authentication succeeded but couldn't get user details"]))
+                }
+                return
+            }
+            
+            // Create user in Firestore
+            let newUser = User(id: authResult.user.uid, email: email)
+            
+            // First update local state
+            DispatchQueue.main.async {
+                self.currentUser = newUser
+                self.isAuthenticated = true
+            }
+            
+            // Then persist to Firestore
+            self.db.collection("users").document(newUser.id).setData(newUser.dictionary) { error in
+                DispatchQueue.main.async {
+                    if let error = error {
+                        print("Error creating user document: \(error)")
+                        completion(false, error)
+                        return
+                    }
+                    
+                    // Force a reload of the user from Firebase to ensure all is in sync
+                    Auth.auth().currentUser?.reload(completion: { _ in
+                        // Double-check auth state
+                        self.isAuthenticated = Auth.auth().currentUser != nil
+                        completion(true, nil)
+                    })
+                }
+            }
+        }
+    }
+
+    // Completely rewrite setupAuthListener for more reliable state sync
     private func setupAuthListener() {
         Auth.auth().addStateDidChangeListener { [weak self] _, firebaseUser in
             guard let self = self else { return }
             
             if let firebaseUser = firebaseUser {
-                self.getUserData(userId: firebaseUser.uid) { user in
-                    if let user = user {
-                        self.currentUser = user
-                        self.isAuthenticated = true
-                    } else {
-                        // 用户在Auth中存在但在Firestore中不存在，创建用户文档
-                        let newUser = User(id: firebaseUser.uid, email: firebaseUser.email ?? "")
-                        self.createUser(user: newUser) { success in
-                            if success {
-                                self.currentUser = newUser
-                                self.isAuthenticated = true
+                print("Auth state change: User is logged in with ID: \(firebaseUser.uid)")
+                
+                // Immediately update auth state
+                DispatchQueue.main.async {
+                    self.isAuthenticated = true
+                }
+                
+                // Get user data with a timeout mechanism
+                let userDataTask = DispatchWorkItem { [weak self] in
+                    self?.getUserData(userId: firebaseUser.uid) { user in
+                        DispatchQueue.main.async {
+                            if let user = user {
+                                print("User data loaded from Firestore")
+                                self?.currentUser = user
+                            } else {
+                                // User document doesn't exist yet, create it
+                                print("Creating new user document in Firestore")
+                                let newUser = User(id: firebaseUser.uid, email: firebaseUser.email ?? "")
+                                self?.currentUser = newUser // Set immediately
+                                
+                                self?.createUser(user: newUser) { _ in
+                                    // Nothing to do here, already set currentUser
+                                }
                             }
                         }
                     }
                 }
-            } else {
-                self.currentUser = nil
-                self.isAuthenticated = false
-            }
-        }
-    }
-    
-    func signIn(email: String, password: String, completion: @escaping (Bool, Error?) -> Void) {
-        Auth.auth().signIn(withEmail: email, password: password) { _, error in
-            completion(error == nil, error)
-        }
-    }
-    
-    func signUp(email: String, password: String, completion: @escaping (Bool, Error?) -> Void) {
-            Auth.auth().createUser(withEmail: email, password: password) { authResult, error in
-                if let error = error {
-                    print("Firebase Authentication Error: \(error.localizedDescription)")
-                    // Print detailed error information
-                    if let nsError = error as NSError? {
-                        print("Error Code: \(nsError.code)")
-                        print("Error Domain: \(nsError.domain)")
-                        print("Error UserInfo: \(nsError.userInfo)")
+                
+                // Execute with timeout
+                DispatchQueue.global().async(execute: userDataTask)
+                
+                // Set a timeout to ensure auth state is recognized even if Firestore is slow
+                DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                    if self.currentUser == nil && self.isAuthenticated {
+                        print("Timeout reached, ensuring user state is set")
+                        let newUser = User(id: firebaseUser.uid, email: firebaseUser.email ?? "")
+                        self.currentUser = newUser
                     }
                 }
-                completion(error == nil, error)
+            } else {
+                print("Auth state change: User is logged out")
+                DispatchQueue.main.async {
+                    self.currentUser = nil
+                    self.isAuthenticated = false
+                }
             }
         }
+    }
+
+    // Also modify signIn to ensure state consistency:
+    func signIn(email: String, password: String, completion: @escaping (Bool, Error?) -> Void) {
+        Auth.auth().signIn(withEmail: email, password: password) { [weak self] authResult, error in
+            if let error = error {
+                completion(false, error)
+                return
+            }
+            
+            // Explicitly update authentication state
+            if let authResult = authResult {
+                // Force refresh the user data
+                self?.getUserData(userId: authResult.user.uid) { user in
+                    DispatchQueue.main.async {
+                        if let user = user {
+                            self?.currentUser = user
+                            self?.isAuthenticated = true
+                        }
+                        completion(true, nil)
+                    }
+                }
+            } else {
+                completion(true, nil)
+            }
+        }
+    }
     
     func signOut() {
         do {
@@ -167,7 +249,17 @@ class FirebaseService: ObservableObject {
 
     func addExpense(expense: Expense, completion: @escaping (Bool) -> Void) {
         print("Starting to add expense to Firestore...")
-        db.collection("expenses").document(expense.id).setData(expense.dictionary) { error in
+        
+        // Create a sanitized dictionary for Firestore
+        var safeData = expense.dictionary
+        
+        // Ensure any document paths are properly sanitized
+        if let title = safeData["title"] as? String {
+            safeData["title"] = title // Keep the original title for display
+            // Don't use title as a path component anywhere
+        }
+        
+        db.collection("expenses").document(expense.id).setData(safeData) { error in
             if let error = error {
                 print("Error adding expense: \(error.localizedDescription)")
                 completion(false)

@@ -39,7 +39,11 @@ extension MainViewModel {
             isNecessary: isNecessary
         )
         
+        // Generate a safe document ID that doesn't use the title
+        let safeId = UUID().uuidString
+        
         let expense = Expense(
+            id: safeId, // Use UUID instead of anything based on title
             title: title,
             amount: amount,
             date: date,

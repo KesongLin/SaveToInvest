@@ -54,6 +54,9 @@ class MainViewModel: ObservableObject {
                 if !success, let error = error {
                     self?.errorMessage = error.localizedDescription
                     self?.showError = true
+                } else if success {
+                    // Add this to explicitly sign in after successful registration
+                    self?.signIn(email: email, password: password)
                 }
             }
         }

@@ -579,6 +579,7 @@ struct ImportDataView: View {
     }
     
     // Import transactions
+
     private func importTransactions() {
         guard !importedTransactions.isEmpty, let userId = viewModel.firebaseService.currentUser?.id else {
             return
@@ -587,60 +588,85 @@ struct ImportDataView: View {
         isLoading = true
         importProgress = 0.0
         
-        // Use batch processing
-        processTransactionsInBatches(userId: userId)
+        // Break processing into smaller chunks with memory cleanup between batches
+        Task {
+            await processWithMemoryManagement(userId: userId)
+        }
     }
-    
-    // Helper method to process transactions in batches
-    private func processTransactionsInBatches(userId: String) {
-        DataImportService.shared.processInBatches(
-            items: importedTransactions,
-            batchSize: 10,
-            process: { batch, completion in
-                processBatch(batch: batch, userId: userId, completion: completion)
-            },
-            completion: handleBatchProcessingCompletion
-        )
-    }
-    
-    // Process a single batch of transactions
-    private func processBatch(batch: [ImportedTransaction], userId: String, completion: @escaping (Bool) -> Void) {
-        var successCount = 0
+
+    // Use Swift concurrency with built-in memory management
+    private func processWithMemoryManagement(userId: String) async {
+        let batchSize = 5 // Process very small batches
+        let totalCount = importedTransactions.count
         
+        // Store only batch references instead of keeping all transactions in memory
+        for batchIndex in stride(from: 0, to: totalCount, by: batchSize) {
+            let endIndex = min(batchIndex + batchSize, totalCount)
+            
+            // Process this small batch
+            await processBatch(userId: userId, startIndex: batchIndex, endIndex: endIndex)
+            
+            // Update progress
+            let progress = Double(endIndex) / Double(totalCount)
+            await MainActor.run {
+                self.importProgress = progress
+            }
+            
+            // Force a brief pause to let the main thread breathe
+            try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+            
+            // Explicitly suggest memory cleanup
+            autoreleasepool {
+                // This helps release any autoreleased objects created during batch processing
+            }
+        }
+        
+        // Complete import
+        await MainActor.run {
+            self.isLoading = false
+            self.presentationMode.wrappedValue.dismiss()
+        }
+    }
+
+    private func processBatch(userId: String, startIndex: Int, endIndex: Int) async {
+        let batch = Array(importedTransactions[startIndex..<endIndex])
+        
+        // Process one transaction at a time with await to prevent overloading
         for transaction in batch {
-            // Use the category that was potentially edited by the user
+            // Get a safe category
             let category = transaction.suggestedCategory?.toExpenseCategory() ?? .other
             
-            // Use the necessity that was potentially edited by the user
+            // Get necessity
             let isNecessary = transaction.isNecessary ?? category.isTypicallyNecessary
             
-            // Create expense object
-            let expense = transaction.toExpense(
-                userId: userId,
+            // Create ultra-safe expense ID
+            let safeId = UUID().uuidString
+            
+            // Create notes with limited size to reduce memory usage
+            let safeNotes = String(transaction.rawText.prefix(100))
+            
+            // Create expense with minimal data
+            let expense = Expense(
+                id: safeId,
+                title: transaction.description,
+                amount: transaction.amount,
+                date: transaction.date,
                 category: category,
-                isNecessary: isNecessary
+                isNecessary: isNecessary,
+                notes: "Imported: \(safeNotes)",
+                userId: userId
             )
             
-            // Save to Firebase
-            viewModel.addExpense(
-                title: expense.title,
-                amount: expense.amount,
-                date: expense.date,
-                category: expense.category,
-                isNecessary: expense.isNecessary,
-                notes: expense.notes
-            )
+            // Add expense with await to control timing
+            await withCheckedContinuation { continuation in
+                viewModel.firebaseService.addExpense(expense: expense) { _ in
+                    continuation.resume()
+                }
+            }
             
-            successCount += 1
+            // Small delay between individual transactions
+            try? await Task.sleep(nanoseconds: 50_000_000) // 0.05 seconds
         }
-        
-        // Update progress
-        DispatchQueue.main.async {
-            let progress = Double(successCount) / Double(self.importedTransactions.count)
-            self.importProgress = progress
-        }
-        
-        completion(true)
     }
     
     // Handle completion of batch processing

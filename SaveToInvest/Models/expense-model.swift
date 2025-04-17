@@ -27,15 +27,18 @@ struct Expense: Identifiable, Codable {
         ]
     }
     
-    init(id: String = UUID().uuidString, 
-         title: String, 
-         amount: Double, 
-         date: Date, 
-         category: ExpenseCategory, 
-         isNecessary: Bool, 
+    init(id: String = UUID().uuidString,
+         title: String,
+         amount: Double,
+         date: Date,
+         category: ExpenseCategory,
+         isNecessary: Bool,
          notes: String? = nil,
          userId: String) {
-        self.id = id
+        // Ensure ID doesn't contain invalid Firestore characters
+        self.id = id.replacingOccurrences(of: "/", with: "-")
+                   .replacingOccurrences(of: ".", with: "-")
+                   .replacingOccurrences(of: "*", with: "-")
         self.title = title
         self.amount = amount
         self.date = date
