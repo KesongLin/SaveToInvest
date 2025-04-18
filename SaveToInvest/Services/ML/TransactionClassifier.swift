@@ -45,22 +45,22 @@ class TransactionClassifier {
         // Normalize the transaction description for consistent matching
         let normalizedDesc = transaction.description.lowercased()
         
-        // Store the classification
+        // Store the classification in memory
         transactionClassificationHistory[normalizedDesc] = isNecessary
         
         // Save to Firebase if possible
         if let userId = firebaseService.currentUser?.id {
+            // Pass both the original and sanitized descriptions
             firebaseService.updateExpenseClassification(
                 userId: userId,
-                expenseTitle: normalizedDesc,
+                expenseTitle: normalizedDesc, // This will be sanitized in the method
                 isNecessary: isNecessary
             )
         }
         
-        // Log for debugging
         print("Learned classification for '\(normalizedDesc)': \(isNecessary ? "necessary" : "non-necessary")")
         
-        // You could also feed this data to update the existing ExpenseClassifierService
+        // Update ExpenseClassifierService as well
         if let category = transaction.suggestedCategory?.toExpenseCategory() {
             ExpenseClassifierService.shared.saveUserClassification(
                 expenseTitle: transaction.description,

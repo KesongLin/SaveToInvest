@@ -5,14 +5,13 @@
 //  Created by Kesong Lin on 4/2/25.
 //
 
-
 import Foundation
 import FirebaseFirestore
 import Combine
 
 class InvestmentDataManager {
-    // Singleton instance
-    static let shared = InvestmentDataManager()
+    // Change to lazy for deferred initialization
+    static var shared = InvestmentDataManager()
     
     // Default tickers to track if user hasn't set any
     private let defaultTickers = [
@@ -56,11 +55,24 @@ class InvestmentDataManager {
     ]
     
     private var cancellables = Set<AnyCancellable>()
-    private let firebaseService = FirebaseService()
+    
+    // CHANGE: Use optional for deferred initialization
+    private var firebaseService: FirebaseService?
     
     private init() {
-        // Load cached investments first
+        // Only load cached investments in init
+        // Don't access Firestore here
         loadCachedInvestments()
+    }
+    
+    // ADDED: Method to initialize with shared Firebase service
+    func initialize(with service: FirebaseService) {
+        self.firebaseService = service
+        
+        // Optional: now that we have Firebase, we could load from there
+        if let userId = service.currentUser?.id {
+            loadInvestmentsFromFirebase(userId: userId)
+        }
     }
     
     // Refresh all investment data
@@ -136,15 +148,55 @@ class InvestmentDataManager {
             self.cacheInvestments()
         }
         
-        // Save to Firebase if a user is logged in
-        if let userId = firebaseService.currentUser?.id {
+        // Save to Firebase if a user is logged in and service exists
+        if let userId = firebaseService?.currentUser?.id {
             saveInvestmentsToFirebase(investments: updatedInvestments, userId: userId)
         }
     }
     
-    // Save investments to Firebase
+    // ADDED: Load investments from Firebase
+    private func loadInvestmentsFromFirebase(userId: String) {
+        // Skip if no Firebase service
+        guard let db = firebaseService?.db else { return }
+        
+        db.collection("investments")
+            .getDocuments { [weak self] snapshot, error in
+                if let error = error {
+                    print("Error getting investments: \(error)")
+                    return
+                }
+                
+                guard let documents = snapshot?.documents else { return }
+                
+                let decoder = JSONDecoder()
+                
+                var loadedInvestments: [Investment] = []
+                
+                for document in documents {
+                    if let jsonData = document.data()["data"] as? String,
+                       let data = jsonData.data(using: .utf8) {
+                        do {
+                            let investment = try decoder.decode(Investment.self, from: data)
+                            loadedInvestments.append(investment)
+                        } catch {
+                            print("Error decoding investment: \(error)")
+                        }
+                    }
+                }
+                
+                if !loadedInvestments.isEmpty {
+                    DispatchQueue.main.async {
+                        self?.investments = loadedInvestments
+                    }
+                }
+            }
+    }
+    
+    // UPDATED: Save investments to Firebase
     private func saveInvestmentsToFirebase(investments: [Investment], userId: String) {
-        let db = Firestore.firestore()
+        // Skip if no Firebase service
+        guard let db = firebaseService?.db else { return }
+        
         let encoder = JSONEncoder()
         
         for investment in investments {

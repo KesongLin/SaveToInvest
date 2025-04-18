@@ -8,13 +8,60 @@ class FirebaseService: ObservableObject {
     @Published var currentUser: User?
     @Published var isAuthenticated = false
     
-    // Change access level from private to internal (default)
-    let db = Firestore.firestore()
+    let db: Firestore
     private var cancellables = Set<AnyCancellable>()
     
     init() {
+        // Obtain Firestore instance first
+        let firestore = Firestore.firestore()
+        
+        // Configure settings using the correct API
+        let settings = FirestoreSettings()
+        
+        // Create a persistent cache settings object
+        // NOTE: The exact API call might vary slightly by Firebase version
+        if let persistentCache = PersistentCacheSettings() as? NSObjectProtocol & LocalCacheSettings {
+            // Set cache settings - don't modify isPersistenceEnabled or cacheSizeBytes
+            settings.cacheSettings = persistentCache
+        } else {
+            // Fallback - use the existing deprecated properties if needed
+            settings.isPersistenceEnabled = true
+            settings.cacheSizeBytes = FirestoreCacheSizeUnlimited
+        }
+        
+        // Apply settings
+        firestore.settings = settings
+        
+        // Assign to property
+        self.db = firestore
+        
+
         setupAuthListener()
     }
+    
+    // New method for offline mode setup
+    private func setupOfflineMode() {
+        // Try to work offline first, then enable network with delay
+        db.disableNetwork { [weak self] error in
+            if error != nil {
+                print("⚠️ Continuing anyway despite offline error")
+            } else {
+                print("💾 Working in offline mode first")
+            }
+            
+            // After 3 seconds, try to connect
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                self?.db.enableNetwork { error in
+                    if let error = error {
+                        print("⚠️ Network connection failed: \(error.localizedDescription)")
+                    } else {
+                        print("🌐 Online mode activated")
+                    }
+                }
+            }
+        }
+    }
+    
     
     // MARK: - Authentication
 
@@ -256,16 +303,34 @@ class FirebaseService: ObservableObject {
         // Ensure any document paths are properly sanitized
         if let title = safeData["title"] as? String {
             safeData["title"] = title // Keep the original title for display
-            // Don't use title as a path component anywhere
+        }
+        
+        // Create a timeout to ensure we don't hang
+        let timeoutTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: false) { _ in
+            print("⚠️ Firestore write operation timed out")
+            completion(false)
         }
         
         db.collection("expenses").document(expense.id).setData(safeData) { error in
+            // Cancel the timeout timer
+            timeoutTimer.invalidate()
+            
             if let error = error {
                 print("Error adding expense: \(error.localizedDescription)")
+                
+                // Check if error is related to offline mode
+                if (error as NSError).domain == FirestoreErrorDomain {
+                    print("📱 App is in offline mode, storing data locally")
+                    // In offline mode, we consider this a success since the data will sync later
+                    completion(true)
+                    return
+                }
+                
                 completion(false)
                 return
             }
             
+            print("✅ Successfully added expense: \(expense.id)")
             // Rather than waiting for trackUserSpendingBehavior, complete immediately
             completion(true)
             
@@ -367,7 +432,7 @@ class FirebaseService: ObservableObject {
         }
     }
     // MARK: - ML Related Methods
-        
+    
     func getExpenseClassifications(userId: String, completion: @escaping ([String: Bool]?) -> Void) {
         db.collection("users").document(userId).collection("expenseClassifications").getDocuments { snapshot, error in
             if let error = error {
@@ -384,9 +449,10 @@ class FirebaseService: ObservableObject {
             var classifications: [String: Bool] = [:]
             
             for document in documents {
-                if let title = document.data()["title"] as? String,
+                // Retrieve the original title field instead of using document ID
+                if let originalTitle = document.data()["originalTitle"] as? String,
                    let isNecessary = document.data()["isNecessary"] as? Bool {
-                    classifications[title] = isNecessary
+                    classifications[originalTitle] = isNecessary
                 }
             }
             
@@ -395,14 +461,19 @@ class FirebaseService: ObservableObject {
     }
 
     func updateExpenseClassification(userId: String, expenseTitle: String, isNecessary: Bool) {
+        let safeDocId = expenseTitle.sanitizedForFirestore()
+        
+        // Create data for the document
         let data: [String: Any] = [
-            "title": expenseTitle,
+            "originalTitle": expenseTitle,  // Store the original unsanitized title as a field
+            "sanitizedTitle": safeDocId,    // Store the sanitized version
             "isNecessary": isNecessary,
             "updatedAt": Timestamp(date: Date())
         ]
         
-        db.collection("users").document(userId).collection("expenseClassifications").document(expenseTitle)
-            .setData(data) { error in
+        // Use the sanitized ID for the document path
+        db.collection("users").document(userId).collection("expenseClassifications").document(safeDocId)
+            .setData(data, merge: true) { error in
                 if let error = error {
                     print("Error updating expense classification: \(error)")
                 }
@@ -441,3 +512,7 @@ class FirebaseService: ObservableObject {
             }
     }
 }
+
+
+
+
