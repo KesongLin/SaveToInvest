@@ -661,6 +661,17 @@ struct ImportDataView: View {
 
     // Use Swift concurrency with built-in memory management
     private func processWithMemoryManagement(userId: String) async {
+        guard !userId.isEmpty else {
+            await MainActor.run {
+                self.errorMessage = "User ID is missing. Please log out and log in again."
+                self.showError = true
+                self.isLoading = false
+            }
+            return
+        }
+        
+        print("Starting import with user ID: \(userId)")
+        
         let batchSize = 5 // Process small batches
         let totalCount = importedTransactions.count
         var processedCount = 0
@@ -720,6 +731,14 @@ struct ImportDataView: View {
     }
 
     private func processBatch(userId: String, transactions: [ImportedTransaction]) async -> Bool {
+        // Verify user ID
+        guard !userId.isEmpty, userId == viewModel.firebaseService.currentUser?.id else {
+            print("⚠️ User ID mismatch or empty during import!")
+            return false
+        }
+        
+        print("Processing batch for user: \(userId)")
+        
         var batchSuccess = true
         
         // Process one transaction at a time with await to prevent overloading

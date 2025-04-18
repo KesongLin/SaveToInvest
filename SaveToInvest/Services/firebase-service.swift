@@ -10,6 +10,7 @@ class FirebaseService: ObservableObject {
     
     let db: Firestore
     private var cancellables = Set<AnyCancellable>()
+    var lastStreamedExpenseCount: Int = 0
     
     init() {
         self.db = Firestore.firestore()
@@ -92,7 +93,6 @@ class FirebaseService: ObservableObject {
         }
     }
 
-    // Completely rewrite setupAuthListener for more reliable state sync
     private func setupAuthListener() {
         Auth.auth().addStateDidChangeListener { [weak self] _, firebaseUser in
             guard let self = self else { return }
@@ -105,36 +105,27 @@ class FirebaseService: ObservableObject {
                     self.isAuthenticated = true
                 }
                 
-                // Get user data with a timeout mechanism
-                let userDataTask = DispatchWorkItem { [weak self] in
-                    self?.getUserData(userId: firebaseUser.uid) { user in
+                // Add delay to ensure authentication is fully established
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    self.getUserData(userId: firebaseUser.uid) { user in
                         DispatchQueue.main.async {
                             if let user = user {
                                 print("User data loaded from Firestore")
-                                self?.currentUser = user
+                                self.currentUser = user
+                                
+                                // Refresh expenses after user data is loaded
+                                NotificationCenter.default.post(name: Notification.Name("RefreshExpenses"), object: nil)
                             } else {
                                 // User document doesn't exist yet, create it
                                 print("Creating new user document in Firestore")
                                 let newUser = User(id: firebaseUser.uid, email: firebaseUser.email ?? "")
-                                self?.currentUser = newUser // Set immediately
+                                self.currentUser = newUser // Set immediately
                                 
-                                self?.createUser(user: newUser) { _ in
+                                self.createUser(user: newUser) { _ in
                                     // Nothing to do here, already set currentUser
                                 }
                             }
                         }
-                    }
-                }
-                
-                // Execute with timeout
-                DispatchQueue.global().async(execute: userDataTask)
-                
-                // Set a timeout to ensure auth state is recognized even if Firestore is slow
-                DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
-                    if self.currentUser == nil && self.isAuthenticated {
-                        print("Timeout reached, ensuring user state is set")
-                        let newUser = User(id: firebaseUser.uid, email: firebaseUser.email ?? "")
-                        self.currentUser = newUser
                     }
                 }
             } else {
@@ -249,10 +240,21 @@ class FirebaseService: ObservableObject {
     func streamExpenses(userId: String) -> AnyPublisher<[Expense], Never> {
         let subject = PassthroughSubject<[Expense], Never>()
         
+        // Verify user ID isn't empty
+        guard !userId.isEmpty else {
+            print("⚠️ Empty user ID in streamExpenses!")
+            subject.send([])
+            return subject.eraseToAnyPublisher()
+        }
+        
+        print("Starting to stream expenses for user ID: \(userId)")
+        
+        // Use this query to match your exact index structure
         db.collection("expenses")
             .whereField("userId", isEqualTo: userId)
-            .order(by: "date", descending: true)
-            .addSnapshotListener { snapshot, error in
+            .order(by: "date", descending: true)  // IMPORTANT: Must be descending to match your index
+            .order(by: FieldPath.documentID(), descending: true)  // This is the __name__ field
+            .addSnapshotListener { [weak self] snapshot, error in
                 if let error = error {
                     print("Error streaming expenses: \(error)")
                     DispatchQueue.main.async {
@@ -262,17 +264,45 @@ class FirebaseService: ObservableObject {
                 }
                 
                 guard let documents = snapshot?.documents else {
+                    print("No documents found in expenses collection for user \(userId)")
                     DispatchQueue.main.async {
                         subject.send([])
                     }
                     return
                 }
                 
-                let expenses = documents.compactMap { Expense(dictionary: $0.data()) }
+                // Log the document count
+                print("Found \(documents.count) expense documents for user \(userId)")
                 
-                // Important: Dispatch updates to the main thread
+                let expenses = documents.compactMap { document -> Expense? in
+                    guard let expense = Expense(dictionary: document.data()) else {
+                        print("⚠️ Failed to parse expense document: \(document.documentID)")
+                        return nil
+                    }
+                    
+                    // Verify expense belongs to this user
+                    if expense.userId != userId {
+                        print("⚠️ Found expense with incorrect user ID: \(expense.id), userID: \(expense.userId) vs \(userId)")
+                        return nil
+                    }
+                    
+                    return expense
+                }
+                
+                // Additional safety check - only include this user's expenses
+                let filteredExpenses = expenses.filter { $0.userId == userId }
+                
+                if expenses.count != filteredExpenses.count {
+                    print("⚠️ Filtered out \(expenses.count - filteredExpenses.count) expenses with wrong user ID")
+                }
+                
+                // Important: Dispatch to the main thread
                 DispatchQueue.main.async {
-                    subject.send(expenses)
+                    print("Sending \(filteredExpenses.count) expenses to UI for user \(userId)")
+                    subject.send(filteredExpenses)
+                    
+                    // Update the debug counter for verification
+                    self?.lastStreamedExpenseCount = filteredExpenses.count
                 }
             }
         
@@ -281,7 +311,15 @@ class FirebaseService: ObservableObject {
     
 
     func addExpense(expense: Expense, completion: @escaping (Bool) -> Void) {
-        print("Starting to add expense to Firestore...")
+        print("Adding expense with user ID: \(expense.userId)")
+        
+        // Verify the expense belongs to the current user
+        guard let currentUserId = Auth.auth().currentUser?.uid,
+              expense.userId == currentUserId else {
+            print("⚠️ Attempted to add expense with mismatched user ID!")
+            completion(false)
+            return
+        }
         
         // Create a sanitized dictionary for Firestore
         var safeData = expense.dictionary
