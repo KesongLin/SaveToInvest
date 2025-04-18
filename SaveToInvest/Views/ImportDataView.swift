@@ -581,17 +581,23 @@ struct ImportDataView: View {
     }
     
     // Import transactions
-
-    // In your ImportDataView.swift
     private func importTransactions() {
         guard !importedTransactions.isEmpty else { return }
         guard let userId = viewModel.firebaseService.currentUser?.id else { return }
         
         isLoading = true
-        importProgress = 0.0
+        importProgress = 0.01 // Start with non-zero progress
+        
+        // Show user that processing has started
+        let feedbackGenerator = UIImpactFeedbackGenerator(style: .medium)
+        feedbackGenerator.impactOccurred()
         
         Task {
             await processWithMemoryManagement(userId: userId)
+            
+            // Force a final refresh of the expense analyzer
+            viewModel.expenseAnalyzer.refreshExpenseStream()
+            viewModel.expenseAnalyzer.analyzeExpenses()
         }
     }
     
@@ -695,8 +701,21 @@ struct ImportDataView: View {
         
         // Complete import
         await MainActor.run {
-            self.isLoading = false
-            self.presentationMode.wrappedValue.dismiss()
+            // Set a final progress of 100% to show completion
+            self.importProgress = 1.0
+            
+            // Add a delay to allow Firestore to sync
+            // Using a dispatch after instead of Task.sleep to maintain synchronous context
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                // Force a refresh of the expense analyzer
+                self.viewModel.expenseAnalyzer.analyzeExpenses()
+                
+                // Final delay to see completion before dismissing
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    self.isLoading = false
+                    self.presentationMode.wrappedValue.dismiss()
+                }
+            }
         }
     }
 
@@ -754,9 +773,9 @@ struct ImportDataView: View {
     // Add this helper function to handle timeouts for async operations
     private func withTimeout<T>(seconds: Double, operation: @escaping (@escaping (T) -> Void) -> Void) async -> T where T: ExpressibleByBooleanLiteral {
         return await withCheckedContinuation { continuation in
-            // Set up a timeout
+            // Set up a timeout with longer duration
             let timeoutWork = DispatchWorkItem {
-                print("Operation timed out")
+                print("Operation timed out after \(seconds) seconds")
                 continuation.resume(returning: false as! T)
             }
             
@@ -765,9 +784,11 @@ struct ImportDataView: View {
             
             // Start the operation
             operation { result in
-                // Cancel the timeout if we get a result
-                timeoutWork.cancel()
-                continuation.resume(returning: result)
+                // Only resume once - prevent multiple completions
+                if !timeoutWork.isCancelled {
+                    timeoutWork.cancel()
+                    continuation.resume(returning: result)
+                }
             }
         }
     }

@@ -56,14 +56,45 @@ class ExpenseAnalyzer: ObservableObject {
     // MARK: - Expense Analysis
     
     func analyzeExpenses() {
-        // 提取非必要支出
+        // Check if we're already on the main thread
+        if Thread.isMainThread {
+            // Directly execute the analysis
+            performAnalysis()
+        } else {
+            // Dispatch to the main thread
+            DispatchQueue.main.async { [weak self] in
+                self?.performAnalysis()
+            }
+        }
+    }
+    
+    // Helper method to perform the actual analysis
+    private func performAnalysis() {
+        // 1. Identify unnecessary expenses
         identifyUnnecessaryExpenses()
         
-        // 生成月度消费摘要
+        // 2. Generate monthly spending summary
         generateMonthlySummary()
         
-        // 计算每个非必要支出类别的机会成本
+        // 3. Calculate opportunity costs
         calculateOpportunityCosts()
+        
+        // Log completion for debugging
+        print("Expense analysis completed with \(expenses.count) total expenses and \(unnecessaryExpenses.count) unnecessary expenses")
+    }
+    
+    // Add this new method to force refresh data from Firebase
+    func forceRefresh() {
+        guard let userId = firebaseService.currentUser?.id else { return }
+        
+        // Cancel existing subscriptions to prevent duplicates
+        cancellables.removeAll()
+        
+        // Re-subscribe to expense stream
+        streamExpenses(userId: userId)
+        
+        // Log the refresh action
+        print("Forced refresh of expense data for user: \(userId)")
     }
     
     private func identifyUnnecessaryExpenses() {
@@ -160,6 +191,19 @@ class ExpenseAnalyzer: ObservableObject {
         formatter.numberStyle = .currency
         formatter.currencyCode = "USD"
         return formatter.string(from: NSNumber(value: amount)) ?? "$\(amount)"
+    }
+    
+    func refreshExpenseStream() {
+        if let userId = firebaseService.currentUser?.id {
+            // Cancel existing subscriptions
+            cancellables.removeAll()
+            
+            // Resubscribe to expense changes
+            streamExpenses(userId: userId)
+            
+            // Log the refresh
+            print("Refreshed expense stream for user: \(userId)")
+        }
     }
 }
 

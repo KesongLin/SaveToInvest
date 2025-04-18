@@ -255,17 +255,25 @@ class FirebaseService: ObservableObject {
             .addSnapshotListener { snapshot, error in
                 if let error = error {
                     print("Error streaming expenses: \(error)")
-                    subject.send([])
+                    DispatchQueue.main.async {
+                        subject.send([])
+                    }
                     return
                 }
                 
                 guard let documents = snapshot?.documents else {
-                    subject.send([])
+                    DispatchQueue.main.async {
+                        subject.send([])
+                    }
                     return
                 }
                 
                 let expenses = documents.compactMap { Expense(dictionary: $0.data()) }
-                subject.send(expenses)
+                
+                // Important: Dispatch updates to the main thread
+                DispatchQueue.main.async {
+                    subject.send(expenses)
+                }
             }
         
         return subject.eraseToAnyPublisher()
