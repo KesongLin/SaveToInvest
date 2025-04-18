@@ -8,6 +8,7 @@
 import Foundation
 import Combine
 import SwiftUI
+import FirebaseFirestore
 
 // Extension for MainViewModel to handle investment data
 extension MainViewModel {

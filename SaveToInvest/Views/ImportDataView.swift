@@ -8,6 +8,7 @@
 import SwiftUI
 import UIKit
 import UniformTypeIdentifiers
+import FirebaseFirestore
 
 struct ImportDataView: View {
     @EnvironmentObject private var viewModel: MainViewModel
@@ -185,6 +186,7 @@ struct ImportDataView: View {
             Text("• The system will automatically identify transaction categories")
             Text("• You can preview and modify categories before import")
             Text("• Sensitive data is processed locally and not uploaded")
+            Text("• CSV format is strongly recommended ! ! !")
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -583,30 +585,16 @@ struct ImportDataView: View {
     // In your ImportDataView.swift
     private func importTransactions() {
         guard !importedTransactions.isEmpty else { return }
+        guard let userId = viewModel.firebaseService.currentUser?.id else { return }
         
         isLoading = true
         importProgress = 0.0
         
-        // Simulate a successful import without trying to write to Firestore
-        DispatchQueue.main.async {
-            // Add a small delay to simulate processing
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                self.isLoading = false
-                self.importProgress = 1.0
-                
-                // Print what would be imported for debugging
-                print("CSV Import Test: Would import \(self.importedTransactions.count) transactions")
-                for transaction in self.importedTransactions.prefix(3) {
-                    print("Sample: \(transaction.description) - $\(transaction.amount)")
-                }
-                
-                // Show success message and dismiss
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                    self.presentationMode.wrappedValue.dismiss()
-                }
-            }
+        Task {
+            await processWithMemoryManagement(userId: userId)
         }
     }
+    
     // Simpler chunk processing without async complexities
     private func processTransactionChunk(_ transactions: [ImportedTransaction], userId: String, completion: @escaping (Int) -> Void) {
         var successCount = 0

@@ -12,30 +12,8 @@ class FirebaseService: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     
     init() {
-        // Obtain Firestore instance first
-        let firestore = Firestore.firestore()
+        self.db = Firestore.firestore()
         
-        // Configure settings using the correct API
-        let settings = FirestoreSettings()
-        
-        // Create a persistent cache settings object
-        // NOTE: The exact API call might vary slightly by Firebase version
-        if let persistentCache = PersistentCacheSettings() as? NSObjectProtocol & LocalCacheSettings {
-            // Set cache settings - don't modify isPersistenceEnabled or cacheSizeBytes
-            settings.cacheSettings = persistentCache
-        } else {
-            // Fallback - use the existing deprecated properties if needed
-            settings.isPersistenceEnabled = true
-            settings.cacheSizeBytes = FirestoreCacheSizeUnlimited
-        }
-        
-        // Apply settings
-        firestore.settings = settings
-        
-        // Assign to property
-        self.db = firestore
-        
-
         setupAuthListener()
     }
     

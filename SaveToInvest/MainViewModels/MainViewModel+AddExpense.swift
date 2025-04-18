@@ -7,6 +7,7 @@
 import Foundation
 import FirebaseFirestore
 
+
 // Extension for MainViewModel to update addExpense function
 extension MainViewModel {
     

@@ -39,72 +39,60 @@ extension FirebaseService {
         guard let year = components.year, let month = components.month else { return }
         
         let monthYearId = "\(year)-\(month)"
-        
-        // Update monthly spending summary
         let monthlySummaryRef = db.collection("users").document(userId)
             .collection("spending_summary").document(monthYearId)
         
-        // Use a transaction to safely update the summary
-        db.runTransaction({ (transaction, errorPointer) -> Any? in
-            do {
-                let document = try transaction.getDocument(monthlySummaryRef)
+        // First get the current data
+        monthlySummaryRef.getDocument { [weak self] snapshot, error in
+            guard let self = self else { return }
+            
+            var summary: [String: Any]
+            
+            if let snapshot = snapshot, snapshot.exists, let data = snapshot.data() {
+                // Existing summary - update it
+                summary = data
                 
-                var summary: [String: Any]
+                // Update total amount
+                let currentTotal = data["totalAmount"] as? Double ?? 0
+                summary["totalAmount"] = currentTotal + expense.amount
                 
-                if document.exists {
-                    // Existing summary - update it
-                    guard var existingSummary = document.data() else {
-                        return nil
-                    }
-                    
-                    summary = existingSummary
-                    
-                    // Update total amount
-                    let currentTotal = existingSummary["totalAmount"] as? Double ?? 0
-                    summary["totalAmount"] = currentTotal + expense.amount
-                    
-                    // Update category amounts
-                    var categoryAmounts = existingSummary["categoryAmounts"] as? [String: Double] ?? [:]
-                    let currentCategoryAmount = categoryAmounts[expense.category.rawValue] ?? 0
-                    categoryAmounts[expense.category.rawValue] = currentCategoryAmount + expense.amount
-                    summary["categoryAmounts"] = categoryAmounts
-                    
-                    // Update necessary vs unnecessary breakdown
-                    var necessaryAmount = existingSummary["necessaryAmount"] as? Double ?? 0
-                    var unnecessaryAmount = existingSummary["unnecessaryAmount"] as? Double ?? 0
-                    
-                    if expense.isNecessary {
-                        necessaryAmount += expense.amount
-                    } else {
-                        unnecessaryAmount += expense.amount
-                    }
-                    
-                    summary["necessaryAmount"] = necessaryAmount
-                    summary["unnecessaryAmount"] = unnecessaryAmount
-                    
+                // Update category amounts
+                var categoryAmounts = data["categoryAmounts"] as? [String: Double] ?? [:]
+                let currentCategoryAmount = categoryAmounts[expense.category.rawValue] ?? 0
+                categoryAmounts[expense.category.rawValue] = currentCategoryAmount + expense.amount
+                summary["categoryAmounts"] = categoryAmounts
+                
+                // Update necessary vs unnecessary breakdown
+                var necessaryAmount = data["necessaryAmount"] as? Double ?? 0
+                var unnecessaryAmount = data["unnecessaryAmount"] as? Double ?? 0
+                
+                if expense.isNecessary {
+                    necessaryAmount += expense.amount
                 } else {
-                    // Create new summary
-                    summary = [
-                        "year": year,
-                        "month": month,
-                        "totalAmount": expense.amount,
-                        "categoryAmounts": [expense.category.rawValue: expense.amount],
-                        "necessaryAmount": expense.isNecessary ? expense.amount : 0,
-                        "unnecessaryAmount": expense.isNecessary ? 0 : expense.amount,
-                        "updatedAt": Timestamp(date: Date())
-                    ]
+                    unnecessaryAmount += expense.amount
                 }
                 
-                transaction.setData(summary, forDocument: monthlySummaryRef)
-                return nil
+                summary["necessaryAmount"] = necessaryAmount
+                summary["unnecessaryAmount"] = unnecessaryAmount
                 
-            } catch let error as NSError {
-                errorPointer?.pointee = error
-                return nil
+            } else {
+                // Create new summary
+                summary = [
+                    "year": year,
+                    "month": month,
+                    "totalAmount": expense.amount,
+                    "categoryAmounts": [expense.category.rawValue: expense.amount],
+                    "necessaryAmount": expense.isNecessary ? expense.amount : 0,
+                    "unnecessaryAmount": expense.isNecessary ? 0 : expense.amount,
+                    "updatedAt": Timestamp(date: Date())
+                ]
             }
-        }) { (_, error) in
-            if let error = error {
-                print("Error updating spending summary: \(error)")
+            
+            // Use merge to safely update
+            monthlySummaryRef.setData(summary, merge: true) { error in
+                if let error = error {
+                    print("Error updating spending summary: \(error)")
+                }
             }
         }
     }

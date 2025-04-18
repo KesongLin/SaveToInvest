@@ -9,6 +9,7 @@ import Foundation
 import UIKit
 import PDFKit
 import SwiftCSV
+import FirebaseFirestore 
 
 // Define import error types
 enum ImportError: Error {

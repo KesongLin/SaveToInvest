@@ -69,9 +69,22 @@
 		DCE8EBC1E73BB1C05BF3E457 /* Pods-SaveToInvestTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SaveToInvestTests.debug.xcconfig"; path = "Target Support Files/Pods-SaveToInvestTests/Pods-SaveToInvestTests.debug.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		9638460F2DB2206C009AD024 /* Exceptions for "SaveToInvest" folder in "SaveToInvest" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 963843C72DA08A61009AD024 /* SaveToInvest */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		963843CA2DA08A61009AD024 /* SaveToInvest */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				9638460F2DB2206C009AD024 /* Exceptions for "SaveToInvest" folder in "SaveToInvest" target */,
+			);
 			path = SaveToInvest;
 			sourceTree = "<group>";
 		};
@@ -568,6 +581,7 @@
 				DEVELOPMENT_TEAM = JQJV4B2959;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = SaveToInvest/Info.plist;
 				INFOPLIST_KEY_NSDocumentsFolderUsageDescription = "Requires access to your documents to import EXCEL, PDF and CSV files for analysis.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -599,6 +613,7 @@
 				DEVELOPMENT_TEAM = JQJV4B2959;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = SaveToInvest/Info.plist;
 				INFOPLIST_KEY_NSDocumentsFolderUsageDescription = "Requires access to your documents to import EXCEL, PDF and CSV files for analysis.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -741,7 +756,7 @@
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/firebase/firebase-ios-sdk";
 			requirement = {
-				kind = upToNextMajorVersion;
+				kind = upToNextMinorVersion;
 				minimumVersion = 11.11.0;
 			};
 		};
@@ -749,7 +764,7 @@
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/swiftcsv/SwiftCSV.git";
 			requirement = {
-				kind = upToNextMajorVersion;
+				kind = upToNextMinorVersion;
 				minimumVersion = 0.10.0;
 			};
 		};
