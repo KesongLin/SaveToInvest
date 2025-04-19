@@ -105,16 +105,18 @@ class FirebaseService: ObservableObject {
                     self.isAuthenticated = true
                 }
                 
-                // Add delay to ensure authentication is fully established
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                // Increase delay to ensure Firebase is fully initialized
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
                     self.getUserData(userId: firebaseUser.uid) { user in
                         DispatchQueue.main.async {
                             if let user = user {
                                 print("User data loaded from Firestore")
                                 self.currentUser = user
                                 
-                                // Refresh expenses after user data is loaded
-                                NotificationCenter.default.post(name: Notification.Name("RefreshExpenses"), object: nil)
+                                // Refresh expenses with longer delay to ensure Firestore is ready
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                                    NotificationCenter.default.post(name: Notification.Name("RefreshExpenses"), object: nil)
+                                }
                             } else {
                                 // User document doesn't exist yet, create it
                                 print("Creating new user document in Firestore")
@@ -122,7 +124,10 @@ class FirebaseService: ObservableObject {
                                 self.currentUser = newUser // Set immediately
                                 
                                 self.createUser(user: newUser) { _ in
-                                    // Nothing to do here, already set currentUser
+                                    // Force refresh after creating user
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                                        NotificationCenter.default.post(name: Notification.Name("RefreshExpenses"), object: nil)
+                                    }
                                 }
                             }
                         }
@@ -137,8 +142,7 @@ class FirebaseService: ObservableObject {
             }
         }
     }
-
-    // Also modify signIn to ensure state consistency:
+    
     func signIn(email: String, password: String, completion: @escaping (Bool, Error?) -> Void) {
         Auth.auth().signIn(withEmail: email, password: password) { [weak self] authResult, error in
             if let error = error {
@@ -249,14 +253,12 @@ class FirebaseService: ObservableObject {
         
         print("Starting to stream expenses for user ID: \(userId)")
         
-        // Use this query to match your exact index structure
+        // Use simpler query that's more likely to work with indexes
         db.collection("expenses")
             .whereField("userId", isEqualTo: userId)
-            .order(by: "date", descending: true)  // IMPORTANT: Must be descending to match your index
-            .order(by: FieldPath.documentID(), descending: true)  // This is the __name__ field
             .addSnapshotListener { [weak self] snapshot, error in
                 if let error = error {
-                    print("Error streaming expenses: \(error)")
+                    print("Error streaming expenses: \(error.localizedDescription)")
                     DispatchQueue.main.async {
                         subject.send([])
                     }
@@ -280,29 +282,22 @@ class FirebaseService: ObservableObject {
                         return nil
                     }
                     
-                    // Verify expense belongs to this user
+                    // Extra safety check
                     if expense.userId != userId {
-                        print("⚠️ Found expense with incorrect user ID: \(expense.id), userID: \(expense.userId) vs \(userId)")
+                        print("⚠️ Found expense with incorrect user ID: \(expense.id)")
                         return nil
                     }
                     
                     return expense
                 }
                 
-                // Additional safety check - only include this user's expenses
-                let filteredExpenses = expenses.filter { $0.userId == userId }
-                
-                if expenses.count != filteredExpenses.count {
-                    print("⚠️ Filtered out \(expenses.count - filteredExpenses.count) expenses with wrong user ID")
-                }
-                
                 // Important: Dispatch to the main thread
                 DispatchQueue.main.async {
-                    print("Sending \(filteredExpenses.count) expenses to UI for user \(userId)")
-                    subject.send(filteredExpenses)
+                    print("Sending \(expenses.count) expenses to UI for user \(userId)")
+                    subject.send(expenses)
                     
                     // Update the debug counter for verification
-                    self?.lastStreamedExpenseCount = filteredExpenses.count
+                    self?.lastStreamedExpenseCount = expenses.count
                 }
             }
         

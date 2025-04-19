@@ -15,14 +15,14 @@ import FirebaseAppCheck
 class AppDelegate: NSObject, UIApplicationDelegate {
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
-
+        
         
         let IPv4PreferenceKey = "CFNetworkPrefersIPv4Over6"
         UserDefaults.standard.set(true, forKey: IPv4PreferenceKey)
         
         // 1) Create debug provider factory with token
         let providerFactory = AppCheckDebugProviderFactory()
-          AppCheck.setAppCheckProviderFactory(providerFactory)
+        AppCheck.setAppCheckProviderFactory(providerFactory)
         
         // 2) Configure Firebase
         if let path = Bundle.main.path(forResource: "GoogleService-Info", ofType: "plist"),
@@ -32,21 +32,46 @@ class AppDelegate: NSObject, UIApplicationDelegate {
             FirebaseApp.configure()
         }
         
-        // 3) Firestore settings (updated for cacheSettings)
+        // 3) Firestore settings (updated for better persistence)
         let firestore = Firestore.firestore()
         let settings = FirestoreSettings()
-
-        // [START persistent_cache_settings]
-        settings.cacheSettings = PersistentCacheSettings(sizeBytes: 100 * 1024 * 1024 as NSNumber) // 100MB cache size
-        // [END persistent_cache_settings]
-
+        
+        // [START improved_persistent_cache_settings]
+        settings.isPersistenceEnabled = true
+        settings.cacheSizeBytes = FirestoreCacheSizeUnlimited
+        // [END improved_persistent_cache_settings]
+        
         firestore.settings = settings
-
+        
+        // Enable offline mode support
+        setupOfflineMode()
         
         return true
     }
+    
+    // Add this method to AppDelegate if it's not already there
+    private func setupOfflineMode() {
+        // Try to work offline first, then enable network with delay
+        Firestore.firestore().disableNetwork { error in
+            if error != nil {
+                print("⚠️ Continuing anyway despite offline error")
+            } else {
+                print("💾 Working in offline mode first")
+            }
+            
+            // After 3 seconds, try to connect
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                Firestore.firestore().enableNetwork { error in
+                    if let error = error {
+                        print("⚠️ Network connection failed: \(error.localizedDescription)")
+                    } else {
+                        print("🌐 Online mode activated")
+                    }
+                }
+            }
+        }
+    }
 }
-
     
 @main
 struct SaveToInvestApp: App {

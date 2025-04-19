@@ -11,6 +11,22 @@ class ExpenseAnalyzer: ObservableObject {
     private var firebaseService: FirebaseService
     private var cancellables = Set<AnyCancellable>()
     
+    @objc func refreshExpenseData() {
+        print("📱 RefreshExpenses notification received")
+        if let userId = firebaseService.currentUser?.id {
+            print("🔄 Refreshing expense data for user: \(userId)")
+            
+            // Cancel existing subscriptions
+            cancellables.removeAll()
+            
+            // Re-subscribe to expense changes
+            streamExpenses(userId: userId)
+        } else {
+            print("⚠️ Cannot refresh expenses: No authenticated user")
+        }
+    }
+    
+    
     init(firebaseService: FirebaseService) {
         self.firebaseService = firebaseService
         
@@ -30,6 +46,14 @@ class ExpenseAnalyzer: ObservableObject {
                 }
             }
             .store(in: &cancellables)
+        
+        // Add this observer for app becoming active
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(refreshExpenseData),
+            name: Notification.Name("RefreshExpenses"),
+            object: nil
+        )
     }
     
     // MARK: - Data Loading
